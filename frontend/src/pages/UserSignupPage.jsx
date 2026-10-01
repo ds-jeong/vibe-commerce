@@ -8,7 +8,7 @@ export default function UserSignupPage() {
   const [userKey, setUserKey] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setPasswordConfirm] = useState('');
-  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [zipcode, setZipcode] = useState('');
   const [roadAddress, setRoadAddress] = useState('');
@@ -400,6 +400,7 @@ export default function UserSignupPage() {
         userKey,
         password,
         name,
+        email,
         phoneNumber,
         zipcode,
         roadAddress,
@@ -630,6 +631,21 @@ export default function UserSignupPage() {
 
             </div>
 
+          </div>
+
+
+          <div>
+            <label className="text-xs font-bold text-gray-500 block mb-1">
+              이메일
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-blue-600 focus:bg-white focus:outline-none transition"
+              placeholder="you@example.com"
+            />
           </div>
 
 

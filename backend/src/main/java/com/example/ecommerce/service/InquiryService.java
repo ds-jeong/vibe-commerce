@@ -1,0 +1,54 @@
+package com.example.ecommerce.service;
+
+import com.example.ecommerce.domain.Inquiry;
+import com.example.ecommerce.domain.InquiryStatus;
+import com.example.ecommerce.domain.User;
+import com.example.ecommerce.repository.InquiryRepository;
+import com.example.ecommerce.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+@Service
+@Transactional
+public class InquiryService {
+
+    private final InquiryRepository inquiryRepository;
+    private final UserRepository userRepository;
+
+    public InquiryService(InquiryRepository inquiryRepository, UserRepository userRepository) {
+        this.inquiryRepository = inquiryRepository;
+        this.userRepository = userRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Inquiry> getMyInquiries(String username) {
+        User user = findUser(username);
+        return inquiryRepository.findByUserOrderByCreatedAtDesc(user);
+    }
+
+    public Inquiry createInquiry(String username, Map<String, String> payload) {
+        String title = payload == null ? null : payload.get("title");
+        String content = payload == null ? null : payload.get("content");
+
+        if (title == null || title.isBlank() || content == null || content.isBlank()) {
+            throw new IllegalArgumentException("문의 제목과 내용을 입력해주세요.");
+        }
+
+        Inquiry inquiry = new Inquiry();
+        inquiry.setUser(findUser(username));
+        inquiry.setTitle(title.trim());
+        inquiry.setContent(content.trim());
+        inquiry.setStatus(InquiryStatus.PENDING);
+        inquiry.setCreatedAt(LocalDateTime.now());
+        return inquiryRepository.save(inquiry);
+    }
+
+    private User findUser(String username) {
+        return userRepository.findByUserKey(username)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+    }
+}

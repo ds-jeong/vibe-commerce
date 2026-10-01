@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as PortOne from '@portone/browser-sdk/v2';
 
 export default function ProductListPage() {
@@ -62,6 +62,17 @@ export default function ProductListPage() {
 
   const [guestCart, setGuestCart] = useState([]);
   const [isCartModalOpen, setIsCartModalOpen] =
+    useState(false);
+  const [selectedCartIds, setSelectedCartIds] =
+    useState([]);
+  const knownCartIdsRef = useRef(new Set());
+  const [checkoutItems, setCheckoutItems] =
+    useState([]);
+  const [checkoutSource, setCheckoutSource] =
+    useState('buy-now');
+  const [checkoutMode, setCheckoutMode] =
+    useState('guest-order');
+  const [memberOrderLoading, setMemberOrderLoading] =
     useState(false);
 
   // =========================================================
@@ -283,6 +294,48 @@ export default function ProductListPage() {
           Number(item.quantity || 0),
       0
     );
+  }, [guestCart]);
+
+  const checkedCartItems = useMemo(() => {
+    return guestCart.filter((item) =>
+      selectedCartIds.includes(Number(item.id))
+    );
+  }, [guestCart, selectedCartIds]);
+
+  const checkedCartTotalPrice = useMemo(() => {
+    return checkedCartItems.reduce(
+      (total, item) =>
+        total +
+        Number(item.price || 0) *
+          Number(item.quantity || 0),
+      0
+    );
+  }, [checkedCartItems]);
+
+  useEffect(() => {
+    const currentIds = guestCart.map((item) =>
+      Number(item.id)
+    );
+
+    setSelectedCartIds((prev) => {
+      const kept = prev.filter((id) =>
+        currentIds.includes(Number(id))
+      );
+      const added = currentIds.filter(
+        (id) => !knownCartIdsRef.current.has(id)
+      );
+
+      currentIds.forEach((id) =>
+        knownCartIdsRef.current.add(id)
+      );
+      [...knownCartIdsRef.current].forEach((id) => {
+        if (!currentIds.includes(id)) {
+          knownCartIdsRef.current.delete(id);
+        }
+      });
+
+      return [...kept, ...added];
+    });
   }, [guestCart]);
 
   // =========================================================
@@ -608,8 +661,295 @@ export default function ProductListPage() {
   // 바로구매
   // =========================================================
 
+  const toCheckoutItem = (item) => ({
+    id: item.id,
+    name: item.name,
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || 1),
+  });
+
+  const buildOrderName = (items) => {
+    if (!items || items.length === 0) {
+      return 'VibeCommerce 주문';
+    }
+
+    if (items.length === 1) {
+      return items[0].name;
+    }
+
+    return `${items[0].name} 외 ${items.length - 1}건`;
+  };
+
+  const removePaidCartItems = async (items) => {
+    const ids = (items || []).map((item) =>
+      Number(item.id)
+    );
+    const token = localStorage.getItem('userToken');
+
+    if (ids.length === 0) {
+      return;
+    }
+
+    if (token) {
+      await Promise.all(
+        ids.map((productId) =>
+          fetch(`/api/cart/${productId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          })
+        )
+      );
+      await refreshCartList();
+      return;
+    }
+
+    setGuestCart((prevCart) =>
+      prevCart.filter(
+        (item) => !ids.includes(Number(item.id))
+      )
+    );
+  };
+
+  const runPortOneCheckout = async ({
+    items,
+    customer,
+    token,
+    source,
+  }) => {
+    const firstItem = items[0];
+    const clientPrice = items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item.price || 0) *
+          Number(item.quantity || 1),
+      0
+    );
+
+    const headers = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch('/api/orders/place', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        ordererName: customer.fullName,
+        phoneNumber: customer.phoneNumber,
+        zipcode: customer.zipcode,
+        roadAddress: customer.roadAddress,
+        detailAddress: customer.detailAddress,
+        productName: firstItem?.name,
+        price: clientPrice,
+        items: items.map((item) => ({
+          id: item.id,
+          quantity: Number(item.quantity || 1),
+        })),
+      }),
+    });
+
+    const orderData = await response.json().catch(() => ({}));
+
+    if (!response.ok || orderData.status !== 'SUCCESS') {
+      throw new Error(
+        orderData.message || '주문 생성에 실패했습니다.'
+      );
+    }
+
+    if (!orderData.merchantUid) {
+      throw new Error('주문번호(merchantUid)를 받지 못했습니다.');
+    }
+
+    if (orderData.amount === undefined || orderData.amount === null) {
+      throw new Error('결제 금액(amount)을 받지 못했습니다.');
+    }
+
+    const totalAmount = Number(orderData.amount);
+
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw new Error('결제 금액이 올바르지 않습니다.');
+    }
+
+    const paymentResponse = await PortOne.requestPayment({
+      storeId: PORTONE_STORE_ID,
+      channelKey: PORTONE_CHANNEL_KEY,
+      paymentId: `payment-${window.crypto.randomUUID()}`,
+      orderName: buildOrderName(items),
+      totalAmount,
+      currency: 'KRW',
+      payMethod: 'EASY_PAY',
+      easyPay: {
+        provider: 'KAKAO_PAY',
+      },
+      customer: {
+        fullName: customer.fullName,
+        phoneNumber: customer.phoneNumber,
+        address: {
+          addressLine1: customer.roadAddress,
+          addressLine2: customer.detailAddress,
+          postalCode: customer.zipcode,
+          countryCode: 'KR',
+        },
+      },
+    });
+
+    if (!paymentResponse) {
+      throw new Error('PortOne 결제 응답을 받지 못했습니다.');
+    }
+
+    if (paymentResponse.code) {
+      throw new Error(
+        paymentResponse.message ||
+          paymentResponse.pgMessage ||
+          '결제가 실패했습니다.'
+      );
+    }
+
+    const completedPaymentId =
+      paymentResponse.paymentId ||
+      String(orderData.merchantUid);
+
+    const verifyResponse = await fetch('/api/orders/verify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        paymentId: completedPaymentId,
+        txId: paymentResponse.txId || null,
+        merchantUid: orderData.merchantUid,
+        totalAmount,
+      }),
+    });
+
+    const verifyData = await verifyResponse.json().catch(() => ({}));
+
+    if (!verifyResponse.ok) {
+      throw new Error(
+        verifyData.message || '결제 검증에 실패했습니다.'
+      );
+    }
+
+    if (source === 'cart') {
+      await removePaidCartItems(items);
+    }
+
+    alert(
+      `결제가 완료되었습니다!\n주문번호: ${completedPaymentId}`
+    );
+  };
+
+  const startMemberCheckout = async (
+    items,
+    source,
+    addressOverride
+  ) => {
+    const token = localStorage.getItem('userToken');
+
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    if (!items || items.length === 0) {
+      alert('주문할 상품을 선택해주세요.');
+      return;
+    }
+
+    setCheckoutItems(items);
+    setCheckoutSource(source);
+    setMemberOrderLoading(true);
+
+    try {
+      const profileResponse = await fetch('/api/user/profile', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const profile = await profileResponse.json().catch(() => ({}));
+
+      if (!profileResponse.ok || profile.status === 'FAIL') {
+        throw new Error(
+          profile.message || '회원 정보를 불러오지 못했습니다.'
+        );
+      }
+
+      const zipcode =
+        addressOverride?.zipcode || profile.zipcode || '';
+      const roadAddress =
+        addressOverride?.roadAddress ||
+        profile.roadAddress ||
+        '';
+      const detailAddress =
+        addressOverride?.detailAddress ||
+        profile.detailAddress ||
+        '';
+
+      if (
+        !guestZipRegex.test(String(zipcode)) ||
+        !String(roadAddress).trim() ||
+        !String(detailAddress).trim()
+      ) {
+        setCheckoutMode('member-address');
+        setGuestName(profile.name || '');
+        setGuestPhone(profile.phoneNumber || '');
+        setGuestZipcode(zipcode || '');
+        setGuestRoadAddress(roadAddress || '');
+        setGuestDetailAddress(detailAddress || '');
+        setGuestOrderError('');
+        setIsGuestOrderFormOpen(true);
+        return;
+      }
+
+      await runPortOneCheckout({
+        items,
+        token,
+        source,
+        customer: {
+          fullName: profile.name,
+          phoneNumber: profile.phoneNumber,
+          zipcode,
+          roadAddress: String(roadAddress).trim(),
+          detailAddress: String(detailAddress).trim(),
+        },
+      });
+    } catch (error) {
+      console.error('회원 주문 오류:', error);
+      alert(
+        error.message ||
+          '회원 주문 처리 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setMemberOrderLoading(false);
+    }
+  };
+
   const handleImmediateBuy = (product) => {
+    const item = toCheckoutItem({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      quantity: 1,
+    });
+
     setSelectedProduct(product);
+    setCheckoutItems([item]);
+    setCheckoutSource('buy-now');
+
+    const token = localStorage.getItem('userToken');
+
+    if (token) {
+      startMemberCheckout([item], 'buy-now');
+      return;
+    }
+
     setIsChoiceModalOpen(true);
   };
 
@@ -628,6 +968,7 @@ export default function ProductListPage() {
 
   const handleSelectGuestOrder = () => {
     setIsChoiceModalOpen(false);
+    setCheckoutMode('guest-order');
 
     setGuestName('');
     setGuestPhone('');
@@ -638,6 +979,37 @@ export default function ProductListPage() {
     setGuestPhoneMessage('');
     setGuestOrderError('');
 
+    setIsGuestOrderFormOpen(true);
+  };
+
+  const handleCartOrder = () => {
+    if (checkedCartItems.length === 0) {
+      alert('주문할 상품을 선택해주세요.');
+      return;
+    }
+
+    const items = checkedCartItems.map((item) =>
+      toCheckoutItem(item)
+    );
+
+    setCheckoutItems(items);
+    setCheckoutSource('cart');
+    setSelectedProduct({
+      id: items[0].id,
+      name: items[0].name,
+      price: items[0].price,
+    });
+
+    const token = localStorage.getItem('userToken');
+
+    if (token) {
+      setIsCartModalOpen(false);
+      startMemberCheckout(items, 'cart');
+      return;
+    }
+
+    setCheckoutMode('guest-order');
+    setIsCartModalOpen(false);
     setIsGuestOrderFormOpen(true);
   };
 
@@ -770,11 +1142,97 @@ export default function ProductListPage() {
 
     setGuestOrderError('');
 
+    const itemsToOrder =
+      checkoutItems.length > 0
+        ? checkoutItems
+        : selectedProduct
+          ? [
+              toCheckoutItem({
+                id: selectedProduct.id,
+                name: selectedProduct.name,
+                price: selectedProduct.price,
+                quantity: 1,
+              }),
+            ]
+          : [];
+
+    if (checkoutMode === 'member-address') {
+      if (
+        !guestZipRegex.test(guestZipcode) ||
+        !guestRoadAddress.trim() ||
+        !guestDetailAddress.trim()
+      ) {
+        setGuestOrderError(
+          '배송지 정보를 모두 입력해주세요.'
+        );
+        return;
+      }
+
+      const token = localStorage.getItem('userToken');
+
+      try {
+        setGuestOrderLoading(true);
+
+        const profileResponse = await fetch(
+          '/api/user/profile',
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              zipcode: guestZipcode,
+              roadAddress: guestRoadAddress.trim(),
+              detailAddress:
+                guestDetailAddress.trim(),
+              phoneNumber: guestPhone || undefined,
+              name: guestName.trim() || undefined,
+            }),
+          }
+        );
+
+        const profileData = await profileResponse
+          .json()
+          .catch(() => ({}));
+
+        if (!profileResponse.ok) {
+          throw new Error(
+            profileData.message ||
+              '배송지 저장에 실패했습니다.'
+          );
+        }
+
+        setIsGuestOrderFormOpen(false);
+        setCheckoutMode('guest-order');
+
+        await startMemberCheckout(
+          itemsToOrder,
+          checkoutSource,
+          {
+            zipcode: guestZipcode,
+            roadAddress: guestRoadAddress.trim(),
+            detailAddress:
+              guestDetailAddress.trim(),
+          }
+        );
+      } catch (error) {
+        setGuestOrderError(
+          error.message ||
+            '배송지 저장 중 오류가 발생했습니다.'
+        );
+      } finally {
+        setGuestOrderLoading(false);
+      }
+
+      return;
+    }
+
     // =======================================================
     // 1. 입력값 검사
     // =======================================================
 
-    if (!selectedProduct) {
+    if (itemsToOrder.length === 0) {
       setGuestOrderError(
         '주문할 상품이 선택되지 않았습니다.'
       );
@@ -849,10 +1307,20 @@ export default function ProductListPage() {
             detailAddress:
               guestDetailAddress.trim(),
             productName:
-              selectedProduct.name,
-            price: Number(
-              selectedProduct.price || 0
+              itemsToOrder[0].name,
+            price: itemsToOrder.reduce(
+              (sum, item) =>
+                sum +
+                Number(item.price || 0) *
+                  Number(item.quantity || 1),
+              0
             ),
+            items: itemsToOrder.map((item) => ({
+              id: item.id,
+              quantity: Number(
+                item.quantity || 1
+              ),
+            })),
           }),
         }
       );
@@ -972,7 +1440,7 @@ export default function ProductListPage() {
             `payment-${window.crypto.randomUUID()}`,
 
           orderName:
-            selectedProduct.name,
+            buildOrderName(itemsToOrder),
 
           totalAmount:
             totalAmount,
@@ -1147,6 +1615,10 @@ export default function ProductListPage() {
       // 9. 폼 초기화
       // =====================================================
 
+      if (checkoutSource === 'cart') {
+        await removePaidCartItems(itemsToOrder);
+      }
+
       setGuestName('');
       setGuestPhone('');
       setGuestZipcode('');
@@ -1157,6 +1629,7 @@ export default function ProductListPage() {
       setGuestOrderError('');
 
       setSelectedProduct(null);
+      setCheckoutItems([]);
       setIsGuestOrderFormOpen(false);
     } catch (error) {
       console.error(
@@ -1231,13 +1704,24 @@ export default function ProductListPage() {
             {/* 로그인 상태 */}
 
             {userToken ? (
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-red-500"
-              >
-                로그아웃
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-red-500"
+                >
+                  로그아웃
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href = '/mypage';
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-blue-50 hover:text-blue-600"
+                >
+                  👤 마이페이지
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -1532,11 +2016,15 @@ export default function ProductListPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
-                    Guest Order
+                    {checkoutMode === 'member-address'
+                      ? 'Member Address'
+                      : 'Guest Order'}
                   </p>
 
                   <h3 className="mt-1 text-xl font-extrabold text-gray-800">
-                    비회원 주문
+                    {checkoutMode === 'member-address'
+                      ? '배송지 입력'
+                      : '비회원 주문'}
                   </h3>
                 </div>
 
@@ -1553,7 +2041,7 @@ export default function ProductListPage() {
                 </button>
               </div>
 
-              {selectedProduct && (
+              {(checkoutItems[0] || selectedProduct) && (
                 <div className="mt-4 rounded-xl bg-gray-50 p-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
@@ -1562,13 +2050,34 @@ export default function ProductListPage() {
                       </p>
 
                       <p className="mt-1 text-sm font-bold text-gray-800">
-                        {selectedProduct.name}
+                        {buildOrderName(
+                          checkoutItems.length > 0
+                            ? checkoutItems
+                            : [
+                                toCheckoutItem(
+                                  selectedProduct
+                                ),
+                              ]
+                        )}
                       </p>
                     </div>
 
                     <p className="whitespace-nowrap text-base font-extrabold text-blue-600">
                       {formatPrice(
-                        selectedProduct.price
+                        checkoutItems.length > 0
+                          ? checkoutItems.reduce(
+                              (sum, item) =>
+                                sum +
+                                Number(
+                                  item.price || 0
+                                ) *
+                                  Number(
+                                    item.quantity ||
+                                      1
+                                  ),
+                              0
+                            )
+                          : selectedProduct.price
                       )}
                       원
                     </p>
@@ -1739,7 +2248,10 @@ export default function ProductListPage() {
                 >
                   {guestOrderLoading
                     ? '주문 처리 중...'
-                    : '비회원 주문하기'}
+                    : checkoutMode ===
+                        'member-address'
+                      ? '배송지 저장 후 결제'
+                      : '비회원 주문하기'}
                 </button>
               </div>
             </form>
@@ -1801,6 +2313,36 @@ export default function ProductListPage() {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={
+                        guestCart.length >
+                          0 &&
+                        selectedCartIds.length ===
+                          guestCart.length
+                      }
+                      onChange={(e) => {
+                        if (
+                          e.target.checked
+                        ) {
+                          setSelectedCartIds(
+                            guestCart.map(
+                              (item) =>
+                                Number(
+                                  item.id
+                                )
+                            )
+                          );
+                        } else {
+                          setSelectedCartIds(
+                            []
+                          );
+                        }
+                      }}
+                    />
+                    전체 선택
+                  </label>
                   {guestCart.map(
                     (item) => (
                       <div
@@ -1808,6 +2350,38 @@ export default function ProductListPage() {
                         className="rounded-xl border border-gray-200 p-4"
                       >
                         <div className="flex items-center justify-between gap-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedCartIds.includes(
+                              Number(item.id)
+                            )}
+                            onChange={(e) => {
+                              const itemId =
+                                Number(
+                                  item.id
+                                );
+                              setSelectedCartIds(
+                                (prev) =>
+                                  e.target
+                                    .checked
+                                    ? [
+                                        ...prev,
+                                        itemId,
+                                      ]
+                                    : prev.filter(
+                                        (
+                                          id
+                                        ) =>
+                                          Number(
+                                            id
+                                          ) !==
+                                          itemId
+                                      )
+                              );
+                            }}
+                            className="h-4 w-4 shrink-0"
+                          />
+
                           {/* 상품명 / 가격 */}
 
                           <div className="min-w-0 flex-1">
@@ -1924,7 +2498,15 @@ export default function ProductListPage() {
                     </p>
 
                     <p className="mt-1 text-sm font-bold text-gray-700">
-                      {cartItemCount}개
+                      {checkedCartItems.reduce(
+                        (total, item) =>
+                          total +
+                          Number(
+                            item.quantity || 0
+                          ),
+                        0
+                      )}
+                      개
                     </p>
                   </div>
 
@@ -1935,7 +2517,7 @@ export default function ProductListPage() {
 
                     <p className="mt-1 text-xl font-extrabold text-blue-600">
                       {formatPrice(
-                        cartTotalPrice
+                        checkedCartTotalPrice
                       )}
                       원
                     </p>
@@ -1953,14 +2535,9 @@ export default function ProductListPage() {
 
                   <button
                     type="button"
-                    onClick={() => {
-                      alert(
-                        userToken
-                          ? '회원 장바구니 주문 API 연결 단계입니다.'
-                          : '비회원 장바구니 주문 API 연결 단계입니다.'
-                      );
-                    }}
-                    className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700"
+                    onClick={handleCartOrder}
+                    disabled={memberOrderLoading}
+                    className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50"
                   >
                     장바구니 주문하기
                   </button>

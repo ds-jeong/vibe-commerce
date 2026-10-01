@@ -5,6 +5,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import UserLoginPage from './pages/UserLoginPage';
 import UserSignupPage from './pages/UserSignupPage';
+import MyPage from './pages/MyPage';
 
 export default function App() {
   return (
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/login" element={<UserLoginPage />} />
         <Route path="/signup" element={<UserSignupPage />} />
+        <Route path="/mypage" element={<MyPage />} />
       </Routes>
     </Router>
   );

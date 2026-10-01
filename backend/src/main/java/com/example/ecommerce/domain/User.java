@@ -1,5 +1,6 @@
 package com.example.ecommerce.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -14,8 +15,10 @@ public class User {
     @Column(unique = true, nullable = false)
     private String userKey;
 
+    @JsonIgnore
     private String password;
     private String name;
+    private String email;
     private String phoneNumber;
 
     // 🏡 [실물 배송지 추적을 위한 데이터베이스 3대 전표 컬럼 신설 명세]
@@ -42,6 +45,9 @@ public class User {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
     public String getPhoneNumber() { return phoneNumber; }
     public void setPhoneNumber(String phoneNumber) { this.phoneNumber = phoneNumber; }
