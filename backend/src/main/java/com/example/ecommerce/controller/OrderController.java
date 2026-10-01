@@ -69,4 +69,37 @@ public class OrderController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
     }
+
+    @PostMapping("/api/orders/{id}/cancel")
+    public ResponseEntity<?> cancelMyOrder(
+            @AuthenticationPrincipal String username,
+            @PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(orderService.cancelMyOrder(username, id));
+        } catch (IllegalArgumentException e) {
+            return fail(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (IllegalStateException e) {
+            return fail(HttpStatus.CONFLICT, e.getMessage());
+        }
+    }
+
+    @PostMapping("/api/orders/{id}/return-request")
+    public ResponseEntity<?> requestReturn(
+            @AuthenticationPrincipal String username,
+            @PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(orderService.requestReturn(username, id));
+        } catch (IllegalArgumentException e) {
+            return fail(HttpStatus.NOT_FOUND, e.getMessage());
+        } catch (IllegalStateException e) {
+            return fail(HttpStatus.CONFLICT, e.getMessage());
+        }
+    }
+
+    private ResponseEntity<Map<String, Object>> fail(HttpStatus status, String message) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "FAIL");
+        response.put("message", message);
+        return ResponseEntity.status(status).body(response);
+    }
 }

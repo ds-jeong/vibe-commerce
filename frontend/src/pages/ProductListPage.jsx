@@ -1723,16 +1723,28 @@ export default function ProductListPage() {
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  window.location.href =
-                    '/login';
-                }}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-blue-600"
-              >
-                로그인
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href =
+                      '/login';
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-blue-600"
+                >
+                  로그인
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.location.href =
+                      '/login?tab=guest';
+                  }}
+                  className="rounded-xl px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
+                >
+                  비회원 주문조회
+                </button>
+              </>
             )}
 
             {/* 장바구니 */}

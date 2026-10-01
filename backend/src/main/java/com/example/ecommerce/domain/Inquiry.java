@@ -34,5 +34,10 @@ public class Inquiry {
     @Column(nullable = false)
     private InquiryStatus status = InquiryStatus.PENDING;
 
+    @Column(columnDefinition = "TEXT")
+    private String answer;
+
+    private LocalDateTime answeredAt;
+
     private LocalDateTime createdAt = LocalDateTime.now();
 }

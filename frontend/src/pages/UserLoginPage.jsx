@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 
 export default function UserLoginPage() {
-  const [activeTab, setActiveTab] = useState('member');
+  const [activeTab, setActiveTab] = useState(
+    new URLSearchParams(window.location.search).get('tab') === 'guest'
+      ? 'guest'
+      : 'member'
+  );
   const [userKey, setUserKey] = useState('');
   const [password, setPassword] = useState('');
   const [guestName, setGuestName] = useState('');

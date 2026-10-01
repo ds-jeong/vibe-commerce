@@ -8,6 +8,7 @@ export default function UserSignupPage() {
   const [userKey, setUserKey] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setPasswordConfirm] = useState('');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [zipcode, setZipcode] = useState('');
@@ -38,6 +39,11 @@ export default function UserSignupPage() {
     msg: '',
   });
 
+  const [emailFeedback, setEmailFeedback] = useState({
+    type: '',
+    msg: '',
+  });
+
   const [error, setError] = useState('');
 
   // ========================================
@@ -63,6 +69,9 @@ export default function UserSignupPage() {
   // 우편번호
   // 숫자 5자리
   const zipRegex = /^\d{5}$/;
+  const emailRegex =
+    /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  const nameRegex = /^[가-힣a-zA-Z\s]{2,20}$/;
 
 
   // ========================================
@@ -337,8 +346,20 @@ export default function UserSignupPage() {
     // 이름 검사
     // ----------------------------------------
 
-    if (!name.trim()) {
-      setError('이름을 입력해 주세요.');
+    if (!nameRegex.test(name.trim())) {
+      setError('이름은 한글 또는 영문 2~20자로 입력해 주세요.');
+
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('이메일을 입력해 주세요.');
+
+      return;
+    }
+
+    if (!emailRegex.test(email.trim())) {
+      setError('올바른 이메일 형식으로 입력해 주세요.');
 
       return;
     }
@@ -642,10 +663,39 @@ export default function UserSignupPage() {
               type="email"
               required
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setEmail(value);
+                if (!value) {
+                  setEmailFeedback({ type: '', msg: '' });
+                  return;
+                }
+                if (!emailRegex.test(value.trim())) {
+                  setEmailFeedback({
+                    type: 'error',
+                    msg: '올바른 이메일 형식으로 입력해 주세요.',
+                  });
+                } else {
+                  setEmailFeedback({
+                    type: 'success',
+                    msg: '사용 가능한 이메일 형식입니다.',
+                  });
+                }
+              }}
               className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm focus:border-blue-600 focus:bg-white focus:outline-none transition"
               placeholder="you@example.com"
             />
+            {emailFeedback.msg && (
+              <p
+                className={`mt-1.5 text-xs font-bold ${
+                  emailFeedback.type === 'success'
+                    ? 'text-emerald-600'
+                    : 'text-red-500'
+                }`}
+              >
+                {emailFeedback.msg}
+              </p>
+            )}
           </div>
 
 

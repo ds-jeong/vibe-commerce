@@ -80,7 +80,8 @@ public class UserAuthController {
             response.put("status", "FAIL"); response.put("message", "우편번호 전표 규격 위배");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
-        if (email != null && !email.isBlank() && !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
+        if (email == null || email.isBlank()
+                || !email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
             response.put("status", "FAIL"); response.put("message", "이메일 규격 위배");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
@@ -177,6 +178,12 @@ public class UserAuthController {
 
         return userRepository.findByUserKey(username)
                 .map(user -> {
+                    if (payload == null) {
+                        response.put("status", "FAIL");
+                        response.put("message", "수정할 정보가 없습니다.");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+                    }
+
                     String name = payload.get("name");
                     String email = payload.get("email");
                     String phoneNumber = payload.get("phoneNumber");
@@ -184,39 +191,40 @@ public class UserAuthController {
                     String roadAddress = payload.get("roadAddress");
                     String detailAddress = payload.get("detailAddress");
 
-                    if (name != null && !name.isBlank()) {
-                        user.setName(name.trim());
+                    if (name == null || !name.trim().matches("^[가-힣a-zA-Z\\s]{2,20}$")) {
+                        response.put("status", "FAIL");
+                        response.put("message", "이름은 한글 또는 영문 2~20자로 입력해주세요.");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
-                    if (email != null) {
-                        if (!email.isBlank() && !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")) {
-                            response.put("status", "FAIL");
-                            response.put("message", "이메일 규격 위배");
-                            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-                        }
-                        user.setEmail(email.isBlank() ? null : email.trim());
+                    if (email == null || email.isBlank()
+                            || !email.trim().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                        response.put("status", "FAIL");
+                        response.put("message", "올바른 이메일 형식으로 입력해주세요.");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
-                    if (phoneNumber != null && !phoneNumber.isBlank()) {
-                        if (!phoneNumber.matches("^010\\d{3,4}\\d{4}$")) {
-                            response.put("status", "FAIL");
-                            response.put("message", "연락처 문자 수식 정합성 위배");
-                            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-                        }
-                        user.setPhoneNumber(phoneNumber);
+                    if (phoneNumber == null || !phoneNumber.matches("^010\\d{3,4}\\d{4}$")) {
+                        response.put("status", "FAIL");
+                        response.put("message", "연락처 문자 수식 정합성 위배");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
-                    if (zipcode != null && !zipcode.isBlank()) {
-                        if (!zipcode.matches("^\\d{5}$")) {
-                            response.put("status", "FAIL");
-                            response.put("message", "우편번호 전표 규격 위배");
-                            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
-                        }
-                        user.setZipcode(zipcode);
+                    if (zipcode == null || !zipcode.matches("^\\d{5}$")) {
+                        response.put("status", "FAIL");
+                        response.put("message", "우편번호 전표 규격 위배");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
-                    if (roadAddress != null) {
-                        user.setRoadAddress(roadAddress.trim());
+                    if (roadAddress == null || roadAddress.isBlank()
+                            || detailAddress == null || detailAddress.isBlank()) {
+                        response.put("status", "FAIL");
+                        response.put("message", "배송지 주소를 모두 입력해주세요.");
+                        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
-                    if (detailAddress != null) {
-                        user.setDetailAddress(detailAddress.trim());
-                    }
+
+                    user.setName(name.trim());
+                    user.setEmail(email.trim());
+                    user.setPhoneNumber(phoneNumber);
+                    user.setZipcode(zipcode);
+                    user.setRoadAddress(roadAddress.trim());
+                    user.setDetailAddress(detailAddress.trim());
 
                     userRepository.save(user);
                     response.put("status", "SUCCESS");

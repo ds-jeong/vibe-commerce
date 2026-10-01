@@ -135,4 +135,43 @@ public class AdminDataController {
                 .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .body(new InputStreamResource(in));
     }
+
+    @GetMapping("/dashboard/stats")
+    public ResponseEntity<Map<String, Object>> getLiveDashboardStats() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            result.put("daily", jdbcTemplate.queryForList(
+                    "SELECT summary_date as date, daily_total_sales as sales, " +
+                            "daily_total_pg_fee as pgFee, daily_total_platform_fee as platformFee, " +
+                            "daily_net_settlement as settlement, total_order_count as orderCount " +
+                            "FROM daily_settlement_summaries ORDER BY summary_date ASC LIMIT 30"));
+        } catch (Exception e) {
+            result.put("daily", List.of());
+        }
+        try {
+            result.put("statusCounts", jdbcTemplate.queryForList(
+                    "SELECT COALESCE(status, 'ORDERED') as name, COUNT(*) as value FROM orders GROUP BY status"));
+        } catch (Exception e) {
+            result.put("statusCounts", List.of());
+        }
+        try {
+            result.put("productSales", jdbcTemplate.queryForList(
+                    "SELECT p.name as name, COALESCE(SUM(oi.count),0) as quantity, " +
+                            "COALESCE(SUM(oi.order_price * oi.count),0) as amount " +
+                            "FROM order_items oi JOIN products p ON oi.product_id = p.id " +
+                            "JOIN orders o ON oi.order_id = o.id " +
+                            "WHERE o.status IS NULL OR o.status NOT IN ('CANCELLED','RETURNED','REFUNDED') " +
+                            "GROUP BY p.name ORDER BY amount DESC LIMIT 10"));
+        } catch (Exception e) {
+            result.put("productSales", List.of());
+        }
+        try {
+            result.put("inquiry", jdbcTemplate.queryForList(
+                    "SELECT COALESCE(status, 'PENDING') as status, COUNT(*) as count FROM inquiries GROUP BY status"));
+        } catch (Exception e) {
+            result.put("inquiry", List.of());
+        }
+        result.put("status", "SUCCESS");
+        return ResponseEntity.ok(result);
+    }
 }

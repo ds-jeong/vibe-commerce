@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,6 +45,40 @@ public class InquiryService {
         inquiry.setContent(content.trim());
         inquiry.setStatus(InquiryStatus.PENDING);
         inquiry.setCreatedAt(LocalDateTime.now());
+        return inquiryRepository.save(inquiry);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Inquiry> getAllInquiries() {
+        return inquiryRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAllInquiriesForAdmin() {
+        return inquiryRepository.findAll().stream().map(inquiry -> {
+            Map<String, Object> row = new HashMap<>();
+            row.put("id", inquiry.getId());
+            row.put("title", inquiry.getTitle());
+            row.put("content", inquiry.getContent());
+            row.put("status", inquiry.getStatus());
+            row.put("answer", inquiry.getAnswer());
+            row.put("answeredAt", inquiry.getAnsweredAt());
+            row.put("createdAt", inquiry.getCreatedAt());
+            row.put("userKey", inquiry.getUser() == null ? null : inquiry.getUser().getUserKey());
+            return row;
+        }).toList();
+    }
+
+    public Inquiry answerInquiry(Long id, Map<String, String> payload) {
+        Inquiry inquiry = inquiryRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("문의글을 찾을 수 없습니다."));
+        String answer = payload == null ? null : payload.get("answer");
+        if (answer == null || answer.isBlank()) {
+            throw new IllegalArgumentException("답변 내용을 입력해주세요.");
+        }
+        inquiry.setAnswer(answer.trim());
+        inquiry.setAnsweredAt(LocalDateTime.now());
+        inquiry.setStatus(InquiryStatus.ANSWERED);
         return inquiryRepository.save(inquiry);
     }
 

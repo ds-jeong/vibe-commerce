@@ -1,6 +1,7 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.domain.OrderItem;
+import com.example.ecommerce.domain.OrderLifecycle;
 import com.example.ecommerce.domain.OrderStatus;
 import com.example.ecommerce.domain.Orders;
 import com.example.ecommerce.domain.Payment;
@@ -34,6 +35,7 @@ public class OrderService {
     private final PasswordEncoder passwordEncoder;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final PortOneRefundService portOneRefundService;
 
     public Map<String, Object> createOrder(Map<String, Object> params) {
         return createOrder(params, null);
@@ -134,8 +136,9 @@ public class OrderService {
         }
         BigDecimal paidAmount = new BigDecimal(params.get("totalAmount").toString());
 
-        Orders order = ordersRepository.findByOrderMerchantUid(merchantUid)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문 번호입니다."));
+        Orders order = ordersRepository.findWithItemsByOrderMerchantUid(merchantUid)
+                .orElseGet(() -> ordersRepository.findByOrderMerchantUid(merchantUid)
+                        .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문 번호입니다.")));
 
         if (order.getNetAmount().compareTo(paidAmount) != 0) {
             order.setStatus(OrderStatus.CANCELLED);
@@ -148,12 +151,17 @@ public class OrderService {
         Payment payment = new Payment();
         payment.setOrder(order);
         payment.setPgImpUid((String) params.get("txId"));
+        Object paymentId = params.get("paymentId");
+        if (paymentId != null) {
+            payment.setPgPaymentId(String.valueOf(paymentId));
+        }
         payment.setPgProvider("KAKAO_PAY");
         payment.setPayMethod("EASY_PAY");
         payment.setAmount(paidAmount);
         payment.setPaidAt(LocalDateTime.now());
 
         paymentRepository.save(payment);
+        restoreOrConsumeStock(order, false);
     }
 
     @Transactional(readOnly = true)
@@ -194,5 +202,105 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("일치하는 비회원 주문을 찾을 수 없습니다."));
 
         return ordersRepository.findWithItemsById(matched.getId()).orElse(matched);
+    }
+
+    public Orders cancelMyOrder(String username, Long orderId) {
+        Orders order = getOwnedOrder(username, orderId);
+        if (!OrderLifecycle.canUserCancel(order.getStatus())) {
+            throw new IllegalStateException("결제 직후 상태에서만 즉시 취소할 수 있습니다.");
+        }
+        refundAndRestore(order, "고객 즉시 주문취소");
+        order.setStatus(OrderStatus.CANCELLED);
+        return ordersRepository.save(order);
+    }
+
+    public Orders requestReturn(String username, Long orderId) {
+        Orders order = getOwnedOrder(username, orderId);
+        if (!OrderLifecycle.canRequestReturn(order.getStatus())) {
+            throw new IllegalStateException("배송완료 주문만 반품 신청할 수 있습니다.");
+        }
+        order.setStatus(OrderStatus.RETURN_REQUESTED);
+        return ordersRepository.save(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Orders> getAllOrdersForAdmin() {
+        List<Orders> orders = ordersRepository.findAllWithItems();
+        orders.sort(Comparator.comparing(Orders::getOrderDate, Comparator.nullsLast(Comparator.reverseOrder())));
+        return orders;
+    }
+
+    public Orders updateAdminOrderStatus(Long orderId, Map<String, String> payload) {
+        Orders order = ordersRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        String nextStatusRaw = payload == null ? null : payload.get("status");
+        String trackingNumber = payload == null ? null : payload.get("trackingNumber");
+
+        if (trackingNumber != null && !trackingNumber.isBlank()) {
+            order.setTrackingNumber(trackingNumber.trim());
+        }
+
+        if (nextStatusRaw == null || nextStatusRaw.isBlank()) {
+            return ordersRepository.save(order);
+        }
+
+        OrderStatus nextStatus;
+        try {
+            nextStatus = OrderStatus.valueOf(nextStatusRaw);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("지원하지 않는 주문 상태입니다.");
+        }
+
+        if (nextStatus == OrderStatus.SHIPPING) {
+            if (order.getTrackingNumber() == null || order.getTrackingNumber().isBlank()) {
+                throw new IllegalArgumentException("배송 시작 전 운송장 번호가 필요합니다.");
+            }
+        }
+
+        if (nextStatus == OrderStatus.RETURNED || nextStatus == OrderStatus.REFUNDED) {
+            if (!OrderLifecycle.canApproveReturn(order.getStatus())) {
+                throw new IllegalStateException("반품 신청 건만 반품완료 처리할 수 있습니다.");
+            }
+            refundAndRestore(order, "관리자 반품 승인");
+        }
+
+        order.setStatus(nextStatus);
+        return ordersRepository.save(order);
+    }
+
+    private Orders getOwnedOrder(String username, Long orderId) {
+        User user = userRepository.findByUserKey(username)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        Orders order = ordersRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        if (order.getUser() == null || order.getUser().getId() == null
+                || !order.getUser().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("본인 주문만 처리할 수 있습니다.");
+        }
+        return order;
+    }
+
+    private void refundAndRestore(Orders order, String reason) {
+        paymentRepository.findByOrder(order)
+                .ifPresent(payment -> portOneRefundService.cancelPayment(payment, reason));
+        restoreOrConsumeStock(order, true);
+    }
+
+    private void restoreOrConsumeStock(Orders order, boolean restore) {
+        if (order == null || order.getOrderItems() == null) {
+            return;
+        }
+        for (OrderItem item : order.getOrderItems()) {
+            if (item == null || item.getProduct() == null) {
+                continue;
+            }
+            Product product = item.getProduct();
+            int current = product.getStockQuantity() == null ? 0 : product.getStockQuantity();
+            int count = item.getCount() == null ? 0 : item.getCount();
+            int next = restore ? current + count : current - count;
+            product.setStockQuantity(Math.max(next, 0));
+            productRepository.save(product);
+        }
     }
 }

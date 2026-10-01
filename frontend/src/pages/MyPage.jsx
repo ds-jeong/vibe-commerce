@@ -1,16 +1,7 @@
 import React, { useEffect, useState } from 'react';
-
-const STATUS_LABEL = {
-  ORDERED: '주문완료',
-  PAID: '결제완료',
-  DELIVERING: '배송중',
-  DELIVERED: '배송완료',
-  CANCELLED: '취소',
-  REFUND_REQUESTED: '환불요청',
-  REFUNDED: '환불완료',
-  PENDING: '대기',
-  COMPLETED: '완료',
-};
+import OrderHistory from '../components/mypage/OrderHistory';
+import ProfileEdit from '../components/mypage/ProfileEdit';
+import InquiryPanel from '../components/mypage/InquiryPanel';
 
 export default function MyPage() {
   const token = localStorage.getItem('userToken');
@@ -106,19 +97,6 @@ export default function MyPage() {
     return String(value).replace('T', ' ').slice(0, 16);
   };
 
-  const orderProductLabel = (order) => {
-    const items = order.orderItems || [];
-    if (items.length === 0) {
-      return '상품 정보 없음';
-    }
-    const firstName = items[0].product?.name || '상품';
-    const qty = items.reduce((sum, item) => sum + Number(item.count || 0), 0);
-    if (items.length === 1) {
-      return `${firstName} / ${qty}개`;
-    }
-    return `${firstName} 외 ${items.length - 1}건 / ${qty}개`;
-  };
-
   const handleProfileSave = async (e) => {
     e.preventDefault();
     setError('');
@@ -205,6 +183,40 @@ export default function MyPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancel = async (orderId) => {
+    if (!window.confirm('주문을 즉시 취소할까요?')) {
+      return;
+    }
+    const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.message || '주문 취소에 실패했습니다.');
+      return;
+    }
+    setMessage('주문이 취소되었습니다.');
+    loadOrders();
+  };
+
+  const handleReturn = async (orderId) => {
+    if (!window.confirm('반품을 신청할까요?')) {
+      return;
+    }
+    const res = await fetch(`/api/orders/${orderId}/return-request`, {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.message || '반품 신청에 실패했습니다.');
+      return;
+    }
+    setMessage('반품이 신청되었습니다.');
+    loadOrders();
   };
 
   const handleAddressSearch = () => {
@@ -296,224 +308,43 @@ export default function MyPage() {
             )}
 
             {activeTab === 'orders' && (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-left text-sm">
-                  <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
-                    <tr>
-                      <th className="px-3 py-3">주문일자</th>
-                      <th className="px-3 py-3">주문번호</th>
-                      <th className="px-3 py-3">상품 / 수량</th>
-                      <th className="px-3 py-3">결제금액</th>
-                      <th className="px-3 py-3">상태</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-3 py-16 text-center text-gray-400">
-                          주문 내역이 없습니다.
-                        </td>
-                      </tr>
-                    ) : (
-                      orders.map((order) => (
-                        <tr key={order.id} className="border-b border-gray-50">
-                          <td className="px-3 py-3 text-gray-600">
-                            {formatDate(order.orderDate)}
-                          </td>
-                          <td className="px-3 py-3 font-bold text-gray-800">
-                            {order.orderMerchantUid}
-                          </td>
-                          <td className="px-3 py-3 text-gray-700">
-                            {orderProductLabel(order)}
-                          </td>
-                          <td className="px-3 py-3 font-extrabold text-blue-600">
-                            {formatPrice(order.netAmount)}원
-                          </td>
-                          <td className="px-3 py-3">
-                            {STATUS_LABEL[order.status] || order.status}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <OrderHistory
+                orders={orders}
+                formatDate={formatDate}
+                formatPrice={formatPrice}
+                onCancel={handleCancel}
+                onReturn={handleReturn}
+              />
             )}
 
             {activeTab === 'profile' && (
-              <div className="grid gap-8 lg:grid-cols-2">
-                <form onSubmit={handleProfileSave} className="space-y-3">
-                  <h3 className="text-lg font-extrabold text-gray-800">기본 정보</h3>
-                  <input
-                    readOnly
-                    value={profile.userKey}
-                    className="w-full rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm"
-                  />
-                  <input
-                    required
-                    value={profile.name}
-                    onChange={(e) =>
-                      setProfile((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                    placeholder="이름"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <input
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) =>
-                      setProfile((prev) => ({ ...prev, email: e.target.value }))
-                    }
-                    placeholder="이메일"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <input
-                    value={profile.phoneNumber}
-                    onChange={(e) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        phoneNumber: e.target.value,
-                      }))
-                    }
-                    placeholder="전화번호"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddressSearch}
-                    className="w-full rounded-xl bg-gray-800 py-3 text-sm font-bold text-white"
-                  >
-                    주소 찾기
-                  </button>
-                  <div className="grid grid-cols-3 gap-2">
-                    <input
-                      readOnly
-                      value={profile.zipcode}
-                      placeholder="우편번호"
-                      className="rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm"
-                    />
-                    <input
-                      readOnly
-                      value={profile.roadAddress}
-                      placeholder="도로명주소"
-                      className="col-span-2 rounded-xl border border-gray-200 bg-gray-100 px-4 py-3 text-sm"
-                    />
-                  </div>
-                  <input
-                    value={profile.detailAddress}
-                    onChange={(e) =>
-                      setProfile((prev) => ({
-                        ...prev,
-                        detailAddress: e.target.value,
-                      }))
-                    }
-                    placeholder="상세주소"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white"
-                  >
-                    정보 저장
-                  </button>
-                </form>
-
-                <form onSubmit={handlePasswordSave} className="space-y-3">
-                  <h3 className="text-lg font-extrabold text-gray-800">비밀번호 변경</h3>
-                  <input
-                    type="password"
-                    required
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder="현재 비밀번호"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="새 비밀번호"
-                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
-                  />
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700"
-                  >
-                    비밀번호 변경
-                  </button>
-                </form>
-              </div>
+              <ProfileEdit
+                profile={profile}
+                setProfile={setProfile}
+                currentPassword={currentPassword}
+                setCurrentPassword={setCurrentPassword}
+                newPassword={newPassword}
+                setNewPassword={setNewPassword}
+                loading={loading}
+                onProfileSave={handleProfileSave}
+                onPasswordSave={handlePasswordSave}
+                onAddressSearch={handleAddressSearch}
+              />
             )}
 
             {activeTab === 'inquiry' && (
-              <div>
-                <div className="mb-4 flex items-center justify-between">
-                  <h3 className="text-lg font-extrabold text-gray-800">1:1 문의</h3>
-                  <button
-                    type="button"
-                    onClick={() => setShowInquiryForm((prev) => !prev)}
-                    className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white"
-                  >
-                    1:1 문의하기
-                  </button>
-                </div>
-
-                {showInquiryForm && (
-                  <form onSubmit={handleInquirySubmit} className="mb-6 space-y-3 rounded-xl bg-gray-50 p-4">
-                    <input
-                      required
-                      value={inquiryTitle}
-                      onChange={(e) => setInquiryTitle(e.target.value)}
-                      placeholder="제목"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-                    />
-                    <textarea
-                      required
-                      rows={5}
-                      value={inquiryContent}
-                      onChange={(e) => setInquiryContent(e.target.value)}
-                      placeholder="문의 내용"
-                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"
-                    />
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white"
-                    >
-                      등록
-                    </button>
-                  </form>
-                )}
-
-                <div className="space-y-3">
-                  {inquiries.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-gray-400">
-                      등록된 문의가 없습니다.
-                    </p>
-                  ) : (
-                    inquiries.map((inquiry) => (
-                      <div
-                        key={inquiry.id}
-                        className="rounded-xl border border-gray-100 p-4"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-bold text-gray-800">{inquiry.title}</p>
-                          <span className="rounded-full bg-gray-100 px-3 py-1 text-[11px] font-bold text-gray-600">
-                            {STATUS_LABEL[inquiry.status] || inquiry.status}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-gray-400">
-                          {formatDate(inquiry.createdAt)}
-                        </p>
-                        <p className="mt-2 text-sm text-gray-600">{inquiry.content}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+              <InquiryPanel
+                inquiries={inquiries}
+                showInquiryForm={showInquiryForm}
+                setShowInquiryForm={setShowInquiryForm}
+                inquiryTitle={inquiryTitle}
+                setInquiryTitle={setInquiryTitle}
+                inquiryContent={inquiryContent}
+                setInquiryContent={setInquiryContent}
+                loading={loading}
+                onSubmit={handleInquirySubmit}
+                formatDate={formatDate}
+              />
             )}
           </section>
         </div>

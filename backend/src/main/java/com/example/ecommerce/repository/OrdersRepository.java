@@ -15,11 +15,14 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
     @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product where o.orderMerchantUid = :uid")
     Optional<Orders> findWithItemsByOrderMerchantUid(@Param("uid") String uid);
 
-    @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product where o.id = :id")
+    @Query("select distinct o from Orders o left join fetch o.user left join fetch o.orderItems oi left join fetch oi.product where o.id = :id")
     Optional<Orders> findWithItemsById(@Param("id") Long id);
 
     @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product where o.user = :user")
     List<Orders> findWithItemsByUser(@Param("user") User user);
 
     List<Orders> findByNonUserNameOrderByOrderDateDesc(String nonUserName);
+
+    @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product")
+    List<Orders> findAllWithItems();
 }

@@ -1,4 +1,5 @@
 package com.example.ecommerce.domain;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,10 +14,12 @@ import java.time.LocalDateTime;
 public class Payment {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @JsonIgnore
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     private Orders order;
     private String pgImpUid;
+    private String pgPaymentId;
     private String pgProvider;
     private String payMethod;
     private BigDecimal amount;

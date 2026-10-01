@@ -17,3 +17,5 @@ spring:
     open-in-view: false
 server:
   port: 8080
+portone:
+  api-secret: ${PORTONE_API_SECRET:}
