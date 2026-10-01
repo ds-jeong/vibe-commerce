@@ -20,14 +20,14 @@ function AdminProductRow({ product, onEdit, onDelete }) {
       <div className="flex gap-2">
         <button
           type="button"
-          className="text-xs font-bold text-blue-600"
+          className="rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
           onClick={() => onEdit(product)}
         >
           수정
         </button>
         <button
           type="button"
-          className="text-xs font-bold text-red-500"
+          className="rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
           onClick={() => onDelete(product.id)}
         >
           삭제

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { trackingUrl } from '../utils/media';
+import { canTrackOrder, ORDER_STATUS_LABEL } from '../utils/validation';
 import OrderLineItems from '../components/order/OrderLineItems';
 
 export default function UserLoginPage() {
@@ -25,7 +26,7 @@ export default function UserLoginPage() {
       body: JSON.stringify({ userKey, password })
     })
       .then((res) => {
-        if (!res.ok) throw new Error('데이터베이스 원장 대조 결과 자격 증명 정보가 일치하지 않습니다.');
+        if (!res.ok) throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
         return res.json();
       })
       .then((resData) => {
@@ -45,7 +46,7 @@ export default function UserLoginPage() {
             .then(mergeRes => mergeRes.json())
             .then(mergeData => {
               if(mergeData.status === 'SUCCESS') {
-                alert(`🔄 [물리 DB 마이그레이션 최종 완료]\n\n비회원 임시 상품 리스트 원장 데이터가 네트워크 세션을 타고 Docker PostgreSQL 데이터베이스 'cart_items' 테이블 원장에 100% 실물 영구 저장 완료되었습니다!`);
+                alert('장바구니 상품이 회원 계정으로 옮겨졌습니다.');
                 localStorage.removeItem('guestCart');
                 window.location.href = '/';
               }
@@ -57,7 +58,7 @@ export default function UserLoginPage() {
         }
       })
       .catch((err) => {
-        setError(err.message || '소비자 로그인 연동 중 장애 발생');
+        setError(err.message || '로그인에 실패했습니다. 다시 시도해 주세요.');
       });
   };
 
@@ -77,7 +78,7 @@ export default function UserLoginPage() {
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data.message || '일치하는 비회원 주문을 찾을 수 없습니다.');
+          throw new Error(data.message || '일치하는 주문을 찾을 수 없습니다.');
         }
         return data;
       })
@@ -85,33 +86,32 @@ export default function UserLoginPage() {
         setGuestOrder(order);
       })
       .catch((err) => {
-        setError(err.message || '비회원 주문 조회 중 오류가 발생했습니다.');
+        setError(err.message || '주문 조회 중 오류가 발생했습니다.');
       });
   };
 
   const formatPrice = (price) => Number(price || 0).toLocaleString('ko-KR');
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 font-sans px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-xl">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 font-sans px-4">
+      <div className="w-full max-w-md rounded-md border border-slate-100 bg-white p-8 shadow-sm">
         <div className="text-center mb-6">
-          <span className="text-3xl">🛍️</span>
-          <h2 className="mt-2 text-2xl font-extrabold text-gray-800 tracking-tight">VibeCommerce</h2>
-          <p className="mt-1 text-xs text-gray-400">회원 로그인 또는 비회원 주문조회</p>
+          <h2 className="mt-2 text-2xl font-semibold text-black tracking-tight">VibeCommerce</h2>
+          <p className="mt-1 text-xs text-slate-400">로그인 또는 비회원 주문조회</p>
         </div>
 
         <div className="mb-6 grid grid-cols-2 rounded-xl bg-gray-100 p-1">
           <button
             type="button"
             onClick={() => { setActiveTab('member'); setError(''); }}
-            className={`rounded-lg py-2 text-xs font-bold ${activeTab === 'member' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+            className={`rounded-md py-2 text-xs font-semibold ${activeTab === 'member' ? 'bg-white text-black shadow-sm' : 'text-slate-500'}`}
           >
             회원 로그인
           </button>
           <button
             type="button"
             onClick={() => { setActiveTab('guest'); setError(''); }}
-            className={`rounded-lg py-2 text-xs font-bold ${activeTab === 'guest' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
+            className={`rounded-md py-2 text-xs font-semibold ${activeTab === 'guest' ? 'bg-white text-black shadow-sm' : 'text-slate-500'}`}
           >
             비회원 주문조회
           </button>
@@ -151,14 +151,14 @@ export default function UserLoginPage() {
 
           <button 
             type="submit"
-            className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-md hover:bg-blue-700 transition active:scale-95"
+            className="w-full rounded-md bg-[#0A192F] py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E293B] transition hover:scale-[1.01]"
           >
-            회원 로그인 및 쇼핑 계속하기
+            로그인
           </button>
           
           <div className="text-center mt-4">
             <a href="/signup" className="text-xs font-semibold text-gray-400 hover:text-blue-600 transition">
-              처음 오셨나요? VibeCommerce 회원가입하기
+              처음 오셨나요? 회원가입
             </a>
           </div>
         </form>
@@ -196,9 +196,9 @@ export default function UserLoginPage() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-gray-800 py-3.5 text-sm font-bold text-white shadow-md hover:bg-gray-900 transition active:scale-95"
+            className="w-full rounded-md bg-[#0A192F] py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E293B] transition hover:scale-[1.01]"
           >
-            최신 주문 조회
+            주문 조회
           </button>
 
           {guestOrder && (
@@ -206,32 +206,35 @@ export default function UserLoginPage() {
               <p className="font-bold text-gray-800">주문번호 {guestOrder.orderMerchantUid}</p>
               <p className="mt-1 text-xs text-gray-500">{String(guestOrder.orderDate || '').replace('T', ' ').slice(0, 16)}</p>
               <p className="mt-2 font-extrabold text-blue-600">{formatPrice(guestOrder.netAmount)}원</p>
-              <p className="mt-1 text-xs text-gray-600">상태: {guestOrder.status}</p>
+              <p className="mt-1 text-xs font-bold text-blue-600">
+                상태: {ORDER_STATUS_LABEL[guestOrder.status] || guestOrder.status}
+              </p>
               <div className="mt-3">
                 <OrderLineItems items={guestOrder.orderItems} formatPrice={formatPrice} />
               </div>
-              {(guestOrder.status === 'SHIPPING' || guestOrder.status === 'DELIVERED' || guestOrder.status === 'DELIVERING') && (
-                <button
-                  type="button"
-                  className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600"
-                  onClick={() => {
+              {canTrackOrder(guestOrder.status) && (
+                <a
+                  href={trackingUrl(guestOrder.trackingNumber) || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
+                  onClick={(event) => {
                     const href = trackingUrl(guestOrder.trackingNumber);
                     if (!href) {
-                      alert('등록된 운송장 번호가 없습니다.');
-                      return;
+                      event.preventDefault();
+                      alert('운송장 번호가 아직 등록되지 않았습니다.');
                     }
-                    window.open(href, '_blank', 'noopener,noreferrer');
                   }}
                 >
-                  📦 배송조회
-                </button>
+                  배송조회
+                </a>
               )}
             </div>
           )}
 
           <div className="text-center mt-4">
             <a href="/" className="text-xs font-semibold text-gray-400 hover:text-blue-600 transition">
-              쇼핑하러 가기
+              쇼핑 계속하기
             </a>
           </div>
         </form>

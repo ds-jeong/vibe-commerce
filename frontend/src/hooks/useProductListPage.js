@@ -25,7 +25,7 @@ export default function useProductListPage() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [appliedKeyword, setAppliedKeyword] = useState('');
 
-  const pageSize = 10;
+  const pageSize = 12;
 
   // =========================================================
   // 바로구매 / 비회원 주문
@@ -78,6 +78,10 @@ export default function useProductListPage() {
     useState('guest-order');
   const [memberOrderLoading, setMemberOrderLoading] =
     useState(false);
+  const [isOrderConfirmOpen, setIsOrderConfirmOpen] =
+    useState(false);
+  const [pendingMemberPay, setPendingMemberPay] =
+    useState(null);
 
   // =========================================================
   // 정규식
@@ -139,9 +143,7 @@ export default function useProductListPage() {
       setTotalPages(pages);
     } catch (error) {
       console.error('상품 조회 오류:', error);
-      alert(
-        '상품 목록을 불러오는 중 오류가 발생했습니다.'
-      );
+      alert('상품을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
@@ -230,15 +232,16 @@ export default function useProductListPage() {
             name: item.productName,
             price: item.price,
             quantity: item.quantity,
+            imageUrl: item.imageUrl || item.productImageUrl || '',
           }))
         : [];
 
       setGuestCart(mappedCart);
 
-      console.log(
-        '회원 DB 장바구니 동기화 완료:',
-        mappedCart
-      );
+      // console.log(
+      //   '회원 DB 장바구니 동기화 완료:',
+      //   mappedCart
+      // );
     } catch (error) {
       console.error(
         '회원 DB 장바구니 조회 오류:',
@@ -247,9 +250,7 @@ export default function useProductListPage() {
 
       setGuestCart([]);
 
-      alert(
-        '회원 장바구니를 불러오는 중 오류가 발생했습니다.'
-      );
+      alert('장바구니를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     }
   };
 
@@ -422,9 +423,7 @@ export default function useProductListPage() {
 
         await refreshCartList();
 
-        alert(
-          `"${product.name}" 상품을 장바구니에 담았습니다.`
-        );
+        alert(`장바구니에 "${product.name}"을(를) 담았습니다.`);
       } catch (error) {
         console.error(
           '회원 장바구니 담기 오류:',
@@ -433,7 +432,7 @@ export default function useProductListPage() {
 
         alert(
           error.message ||
-            '회원 장바구니 담기 중 오류가 발생했습니다.'
+            '장바구니에 담지 못했습니다. 다시 시도해 주세요.'
         );
       }
 
@@ -471,13 +470,12 @@ export default function useProductListPage() {
           name: product.name,
           price: product.price,
           quantity: 1,
+          imageUrl: product.imageUrl || product.image || '',
         },
       ];
     });
 
-    alert(
-      `"${product.name}" 상품을 장바구니에 담았습니다.`
-    );
+    alert(`장바구니에 "${product.name}"을(를) 담았습니다.`);
   };
 
   // =========================================================
@@ -490,7 +488,7 @@ export default function useProductListPage() {
     // 회원 DB 수량 변경 API는 아직 연결하지 않음
     if (token) {
       alert(
-        '회원 장바구니 수량 변경 API 연결이 필요합니다.'
+        '회원 장바구니는 아직 수량을 변경할 수 없습니다.'
       );
 
       return;
@@ -519,7 +517,7 @@ export default function useProductListPage() {
     // 회원 DB 수량 변경 API는 아직 연결하지 않음
     if (token) {
       alert(
-        '회원 장바구니 수량 변경 API 연결이 필요합니다.'
+        '회원 장바구니는 아직 수량을 변경할 수 없습니다.'
       );
 
       return;
@@ -589,7 +587,7 @@ export default function useProductListPage() {
 
         alert(
           error.message ||
-            '회원 장바구니 삭제 중 오류가 발생했습니다.'
+            '상품을 장바구니에서 삭제하지 못했습니다.'
         );
       }
 
@@ -656,7 +654,7 @@ export default function useProductListPage() {
 
         alert(
           error.message ||
-            '회원 장바구니 전체 삭제 중 오류가 발생했습니다.'
+            '장바구니를 비우지 못했습니다.'
         );
       }
 
@@ -675,6 +673,12 @@ export default function useProductListPage() {
     name: item.name,
     price: Number(item.price || 0),
     quantity: Number(item.quantity || 1),
+    imageUrl:
+      item.imageUrl ||
+      item.image ||
+      item.productImageUrl ||
+      item.product?.imageUrl ||
+      '',
   });
 
   const buildOrderName = (items) => {
@@ -849,9 +853,7 @@ export default function useProductListPage() {
       await removePaidCartItems(items);
     }
 
-    alert(
-      `결제가 완료되었습니다!\n주문번호: ${completedPaymentId}`
-    );
+    alert(`결제가 완료되었습니다.\n주문번호 ${completedPaymentId}`);
   };
 
   const startMemberCheckout = async (
@@ -867,7 +869,7 @@ export default function useProductListPage() {
     }
 
     if (!items || items.length === 0) {
-      alert('주문할 상품을 선택해주세요.');
+      alert('주문하실 상품을 선택해 주세요.');
       return;
     }
 
@@ -917,7 +919,7 @@ export default function useProductListPage() {
         return;
       }
 
-      await runPortOneCheckout({
+      setPendingMemberPay({
         items,
         token,
         source,
@@ -929,11 +931,13 @@ export default function useProductListPage() {
           detailAddress: String(detailAddress).trim(),
         },
       });
+      setIsGuestOrderFormOpen(false);
+      setIsOrderConfirmOpen(true);
     } catch (error) {
       console.error('회원 주문 오류:', error);
       alert(
         error.message ||
-          '회원 주문 처리 중 오류가 발생했습니다.'
+          '주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
       );
     } finally {
       setMemberOrderLoading(false);
@@ -942,9 +946,7 @@ export default function useProductListPage() {
 
   const handleImmediateBuy = (product) => {
     const item = toCheckoutItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
+      ...product,
       quantity: 1,
     });
 
@@ -993,7 +995,7 @@ export default function useProductListPage() {
 
   const handleCartOrder = () => {
     if (checkedCartItems.length === 0) {
-      alert('주문할 상품을 선택해주세요.');
+      alert('주문하실 상품을 선택해 주세요.');
       return;
     }
 
@@ -1082,7 +1084,7 @@ export default function useProductListPage() {
       !window.daum.Postcode
     ) {
       alert(
-        '주소 검색 서비스를 불러오지 못했습니다.\n잠시 후 다시 시도해주세요.'
+        '주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.'
       );
 
       return;
@@ -1146,8 +1148,10 @@ export default function useProductListPage() {
   // 비회원 주문 제출 + PortOne V2 카카오페이
   // =========================================================
 
-  const handleGuestOrderSubmit = async (e) => {
-    e.preventDefault();
+  const handleGuestOrderSubmit = async (e, options = {}) => {
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
 
     setGuestOrderError('');
 
@@ -1287,9 +1291,17 @@ export default function useProductListPage() {
 
     if (!guestDetailAddress.trim()) {
       setGuestOrderError(
-        '상세주소를 입력해주세요.'
+        '상세주소를 입력해 주세요.'
       );
 
+      return;
+    }
+
+    if (!options.confirmed) {
+      setPendingMemberPay(null);
+      setGuestOrderError('');
+      setIsGuestOrderFormOpen(false);
+      setIsOrderConfirmOpen(true);
       return;
     }
 
@@ -1339,10 +1351,10 @@ export default function useProductListPage() {
           () => ({})
         );
 
-      console.log(
-        '📦 주문 생성 응답:',
-        orderData
-      );
+      // console.log(
+      //   '📦 주문 생성 응답:',
+      //   orderData
+      // );
 
       if (!response.ok) {
         throw new Error(
@@ -1395,29 +1407,29 @@ export default function useProductListPage() {
         );
       }
 
-      console.log(
-        '💳 PortOne V2 결제 요청 준비'
-      );
+      // console.log(
+      //   '💳 PortOne V2 결제 요청 준비'
+      // );
 
-      console.log(
-        'Store ID:',
-        PORTONE_STORE_ID
-      );
+      // console.log(
+      //   'Store ID:',
+      //   PORTONE_STORE_ID
+      // );
 
-      console.log(
-        'Channel Key:',
-        PORTONE_CHANNEL_KEY
-      );
+      // console.log(
+      //   'Channel Key:',
+      //   PORTONE_CHANNEL_KEY
+      // );
 
-      console.log(
-        'Payment ID:',
-        paymentId
-      );
+      // console.log(
+      //   'Payment ID:',
+      //   paymentId
+      // );
 
-      console.log(
-        'Amount:',
-        totalAmount
-      );
+      // console.log(
+      //   'Amount:',
+      //   totalAmount
+      // );
 
       // =====================================================
       // 4. PortOne V2 카카오페이 결제창 호출
@@ -1485,10 +1497,10 @@ export default function useProductListPage() {
           },
         });
 
-      console.log(
-        '💳 PortOne V2 결제 응답:',
-        paymentResponse
-      );
+      // console.log(
+      //   '💳 PortOne V2 결제 응답:',
+      //   paymentResponse
+      // );
 
       // =====================================================
       // 5. 결제창 호출/결제 결과 확인
@@ -1543,19 +1555,19 @@ export default function useProductListPage() {
       const txId =
         paymentResponse.txId || null;
 
-      console.log(
-        '✅ PortOne 결제 요청 성공'
-      );
+      // console.log(
+      //   '✅ PortOne 결제 요청 성공'
+      // );
 
-      console.log(
-        'Payment ID:',
-        completedPaymentId
-      );
+      // console.log(
+      //   'Payment ID:',
+      //   completedPaymentId
+      // );
 
-      console.log(
-        'TX ID:',
-        txId
-      );
+      // console.log(
+      //   'TX ID:',
+      //   txId
+      // );
 
       // =====================================================
       // 7. 백엔드 결제 검증
@@ -1600,10 +1612,10 @@ export default function useProductListPage() {
           .json()
           .catch(() => ({}));
 
-      console.log(
-        '🔐 결제 검증 응답:',
-        verifyData
-      );
+      // console.log(
+      //   '🔐 결제 검증 응답:',
+      //   verifyData
+      // );
 
       if (!verifyResponse.ok) {
         throw new Error(
@@ -1617,7 +1629,7 @@ export default function useProductListPage() {
       // =====================================================
 
       alert(
-        `결제가 완료되었습니다!\n주문번호: ${completedPaymentId}`
+        `결제가 완료되었습니다.\n주문번호 ${completedPaymentId}`
       );
 
       // =====================================================
@@ -1640,6 +1652,8 @@ export default function useProductListPage() {
       setSelectedProduct(null);
       setCheckoutItems([]);
       setIsGuestOrderFormOpen(false);
+      setIsOrderConfirmOpen(false);
+      setPendingMemberPay(null);
     } catch (error) {
       console.error(
         '❌ 비회원 주문 오류:',
@@ -1653,6 +1667,41 @@ export default function useProductListPage() {
     } finally {
       setGuestOrderLoading(false);
     }
+  };
+
+  const handleConfirmFinalPay = async () => {
+    if (pendingMemberPay) {
+      setMemberOrderLoading(true);
+      setGuestOrderError('');
+      try {
+        await runPortOneCheckout(pendingMemberPay);
+        setIsOrderConfirmOpen(false);
+        setPendingMemberPay(null);
+        setCheckoutItems([]);
+      } catch (error) {
+        setGuestOrderError(
+          error.message || '결제에 실패했습니다. 다시 시도해 주세요.'
+        );
+      } finally {
+        setMemberOrderLoading(false);
+      }
+      return;
+    }
+
+    await handleGuestOrderSubmit(null, { confirmed: true });
+  };
+
+  const handleBackFromOrderConfirm = () => {
+    if (guestOrderLoading || memberOrderLoading) {
+      return;
+    }
+    setIsOrderConfirmOpen(false);
+    setGuestOrderError('');
+    if (pendingMemberPay) {
+      setPendingMemberPay(null);
+      return;
+    }
+    setIsGuestOrderFormOpen(true);
   };
 
   // =========================================================
@@ -1719,6 +1768,7 @@ export default function useProductListPage() {
     checkoutItems,
     checkoutMode,
     memberOrderLoading,
+    isOrderConfirmOpen,
     guestNameRegex,
     guestPhoneRegex,
     userToken,
@@ -1742,6 +1792,8 @@ export default function useProductListPage() {
     handleGuestPhoneChange,
     handleAddressSearch,
     handleGuestOrderSubmit,
+    handleConfirmFinalPay,
+    handleBackFromOrderConfirm,
     handlePreviousPage,
     handleNextPage,
     searchKeyword,

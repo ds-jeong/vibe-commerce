@@ -12,6 +12,7 @@ const AdminOrderRow = memo(function AdminOrderRow({
   trackingDraft,
   onTrackingChange,
   onUpdateStatus,
+  onApproveReturn,
   subTab,
 }) {
   const status = order?.status || 'ORDERED';
@@ -38,7 +39,7 @@ const AdminOrderRow = memo(function AdminOrderRow({
         <div className="mt-3">
           <button
             type="button"
-            className="rounded-lg bg-gray-800 px-3 py-2 text-xs font-bold text-white"
+            className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
             onClick={() => onUpdateStatus(order.id, 'PREPARING')}
           >
             배송 준비
@@ -56,7 +57,7 @@ const AdminOrderRow = memo(function AdminOrderRow({
           />
           <button
             type="button"
-            className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"
+            className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
             onClick={() =>
               onUpdateStatus(
                 order.id,
@@ -77,18 +78,27 @@ const AdminOrderRow = memo(function AdminOrderRow({
               href={trackHref}
               target="_blank"
               rel="noreferrer"
-              className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600"
+              className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
             >
-              📦 배송조회
+              배송조회
             </a>
           ) : null}
           {(status === 'SHIPPING' || status === 'DELIVERING') && (
             <button
               type="button"
-              className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white"
+              className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
               onClick={() => onUpdateStatus(order.id, 'DELIVERED', order.trackingNumber)}
             >
               배송 완료
+            </button>
+          )}
+          {(status === 'RETURN_REQUESTED' || status === 'REFUND_REQUESTED') && (
+            <button
+              type="button"
+              className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
+              onClick={() => onApproveReturn(order)}
+            >
+              반품 승인
             </button>
           )}
         </div>
@@ -109,6 +119,7 @@ export default function AdminOrderDashboard() {
   const [deliveryTotalPages, setDeliveryTotalPages] = useState(0);
   const [orders, setOrders] = useState([]);
   const [trackingDraft, setTrackingDraft] = useState({});
+  const [toast, setToast] = useState('');
 
   const currentPage = subTab === 'shipping' ? deliveryPage : orderPage;
   const totalPages = subTab === 'shipping' ? deliveryTotalPages : orderTotalPages;
@@ -157,7 +168,7 @@ export default function AdminOrderDashboard() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(body.message || '상태 변경 실패');
+        alert(body.message || '주문 상태를 변경하지 못했습니다.');
         return;
       }
       if (String(status).toUpperCase() === 'SHIPPING') {
@@ -174,6 +185,45 @@ export default function AdminOrderDashboard() {
     setTrackingDraft((prev) => ({ ...prev, [id]: value }));
   }, []);
 
+  const approveReturnRefund = useCallback(async (order) => {
+    const orderId = order?.id;
+    if (!orderId) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/return-approve`, {
+        method: 'PUT',
+        headers: adminHeaders(),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setToast('환불 API 처리 실패: 기존 주문 상태가 유지됩니다.');
+        setOrders((prev) =>
+          (Array.isArray(prev) ? prev : []).map((row) =>
+            row.id === orderId
+              ? { ...row, status: 'RETURN_REQUESTED' }
+              : row
+          )
+        );
+        window.setTimeout(() => setToast(''), 2800);
+        return;
+      }
+      setToast('반품 환불이 완료되었습니다.');
+      window.setTimeout(() => setToast(''), 2200);
+      await loadOrders();
+    } catch (error) {
+      setToast('환불 API 처리 실패: 기존 주문 상태가 유지됩니다.');
+      setOrders((prev) =>
+        (Array.isArray(prev) ? prev : []).map((row) =>
+          row.id === orderId
+            ? { ...row, status: 'RETURN_REQUESTED' }
+            : row
+        )
+      );
+      window.setTimeout(() => setToast(''), 2800);
+    }
+  }, [loadOrders]);
+
   const setCurrentPage = (page) => {
     if (subTab === 'shipping') {
       setDeliveryPage(page);
@@ -184,12 +234,17 @@ export default function AdminOrderDashboard() {
 
   return (
     <div className="space-y-4">
+      {toast ? (
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-xs font-bold text-amber-700">
+          {toast}
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setSubTab('orders')}
-          className={`rounded-xl px-4 py-2 text-xs font-bold ${
-            subTab === 'orders' ? 'bg-blue-600 text-white' : 'border bg-white'
+          className={`rounded-md px-4 py-2 text-xs font-semibold shadow-sm transition hover:scale-[1.01] ${
+            subTab === 'orders' ? 'bg-[#0A192F] text-white' : 'border border-slate-200 bg-white text-slate-700'
           }`}
         >
           주문 관리
@@ -197,8 +252,8 @@ export default function AdminOrderDashboard() {
         <button
           type="button"
           onClick={() => setSubTab('shipping')}
-          className={`rounded-xl px-4 py-2 text-xs font-bold ${
-            subTab === 'shipping' ? 'bg-blue-600 text-white' : 'border bg-white'
+          className={`rounded-md px-4 py-2 text-xs font-semibold shadow-sm transition hover:scale-[1.01] ${
+            subTab === 'shipping' ? 'bg-[#0A192F] text-white' : 'border border-slate-200 bg-white text-slate-700'
           }`}
         >
           배송 관리
@@ -239,7 +294,7 @@ export default function AdminOrderDashboard() {
         />
         <button
           type="submit"
-          className="rounded-xl bg-gray-800 px-3 py-2 text-xs font-bold text-white"
+          className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
           검색
         </button>
@@ -254,6 +309,7 @@ export default function AdminOrderDashboard() {
             trackingDraft={trackingDraft}
             onTrackingChange={onTrackingChange}
             onUpdateStatus={updateOrderStatus}
+            onApproveReturn={approveReturnRefund}
           />
         ))}
       </div>

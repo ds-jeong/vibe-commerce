@@ -118,7 +118,7 @@ export default function ProfileEdit({
         <button
           type="button"
           onClick={onAddressSearch}
-          className="w-full rounded-xl bg-gray-800 py-3 text-sm font-bold text-white"
+          className="w-full rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
           주소 찾기
         </button>
@@ -151,7 +151,7 @@ export default function ProfileEdit({
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white"
+          className="w-full rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:opacity-50"
         >
           정보 저장
         </button>
@@ -178,7 +178,7 @@ export default function ProfileEdit({
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-700"
+          className="w-full rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:opacity-50"
         >
           비밀번호 변경
         </button>

@@ -15,6 +15,7 @@ public class Payment {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @JsonIgnore
+    @Getter(onMethod_ = @JsonIgnore)
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id")
     private Orders order;

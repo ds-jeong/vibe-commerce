@@ -30,7 +30,7 @@ const InquiryItem = memo(function InquiryItem({
         />
         <button
           type="button"
-          className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white"
+          className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
           onClick={() => onAnswer(inquiry.id)}
         >
           {inquiry.answer ? '답변 수정' : '답변 등록'}
@@ -38,7 +38,7 @@ const InquiryItem = memo(function InquiryItem({
         {inquiry.answer ? (
           <button
             type="button"
-            className="rounded-lg border px-3 py-2 text-xs font-bold text-gray-500"
+            className="rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
             onClick={() => onDeleteAnswer(inquiry.id)}
           >
             답변 삭제
@@ -87,7 +87,7 @@ export default function AdminInquiryDashboard() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.message || '답변 등록에 실패했습니다.');
+        alert(data.message || '답변을 등록하지 못했습니다.');
         return;
       }
       setAnswerDraft((prev) => ({ ...prev, [id]: '' }));
@@ -107,7 +107,7 @@ export default function AdminInquiryDashboard() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.message || '답변 삭제에 실패했습니다.');
+        alert(data.message || '답변을 삭제하지 못했습니다.');
         return;
       }
       setAnswerDraft((prev) => ({ ...prev, [id]: '' }));

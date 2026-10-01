@@ -36,6 +36,10 @@ public class Orders {
     private BigDecimal totalAmount;
     private BigDecimal discountAmount;
     private BigDecimal netAmount;
+    private BigDecimal deliveryFee;
+    private BigDecimal pgFee;
+    private BigDecimal platformFee;
+    private BigDecimal partnerSettlementAmount;
     private LocalDateTime orderDate = LocalDateTime.now();
 
     // 비회원 주문 처리를 위한 전용 필드

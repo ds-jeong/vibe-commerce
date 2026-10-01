@@ -22,19 +22,19 @@ export default function Pagination({
         type="button"
         onClick={handlePreviousPage}
         disabled={currentPage === 0}
-        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:scale-[1.01] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        ← 이전
+        이전
       </button>
       {visible.map((page) => (
         <button
           key={page}
           type="button"
           onClick={() => setCurrentPage(page)}
-          className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+          className={`rounded-md px-3 py-2 text-xs font-semibold transition hover:scale-[1.01] ${
             page === currentPage
-              ? 'bg-blue-600 text-white'
-              : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-100'
+              ? 'bg-[#0A192F] text-white'
+              : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
           {page + 1}
@@ -44,9 +44,9 @@ export default function Pagination({
         type="button"
         onClick={handleNextPage}
         disabled={currentPage >= totalPages - 1}
-        className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-600 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-md border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:scale-[1.01] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        다음 →
+        다음
       </button>
     </div>
   );

@@ -91,7 +91,7 @@ export default function AdminProductDashboard() {
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        alert(data.message || '삭제에 실패했습니다.');
+        alert(data.message || '상품을 삭제하지 못했습니다.');
         return;
       }
       showToast('상품이 삭제되었습니다.');
@@ -138,7 +138,7 @@ export default function AdminProductDashboard() {
         />
         <button
           type="submit"
-          className="rounded-xl bg-gray-800 px-4 py-2.5 text-xs font-bold text-white"
+          className="rounded-md bg-[#0A192F] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
           검색
         </button>

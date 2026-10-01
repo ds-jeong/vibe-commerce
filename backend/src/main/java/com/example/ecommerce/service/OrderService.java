@@ -38,6 +38,7 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final PortOneRefundService portOneRefundService;
+    private final SettlementLedgerService settlementLedgerService;
 
     public Map<String, Object> createOrder(Map<String, Object> params) {
         return createOrder(params, null);
@@ -62,16 +63,17 @@ public class OrderService {
             userRepository.findByUserKey(username).ifPresent(order::setUser);
         }
 
-        BigDecimal computedAmount = resolveOrderAmount(params, order);
-        order.setTotalAmount(computedAmount);
-        order.setNetAmount(computedAmount);
+        BigDecimal goodsAmount = resolveOrderAmount(params, order);
+        settlementLedgerService.applyCheckoutLedger(order, goodsAmount);
 
         ordersRepository.save(order);
 
         Map<String, Object> result = new HashMap<>();
         result.put("status", "SUCCESS");
         result.put("merchantUid", merchantUid);
-        result.put("amount", computedAmount);
+        result.put("amount", order.getNetAmount());
+        result.put("deliveryFee", order.getDeliveryFee());
+        result.put("goodsAmount", goodsAmount);
         return result;
     }
 
@@ -164,6 +166,7 @@ public class OrderService {
 
         paymentRepository.save(payment);
         restoreOrConsumeStock(order, false);
+        settlementLedgerService.recordPaidSettlement(order);
     }
 
     @Transactional(readOnly = true)
@@ -262,7 +265,10 @@ public class OrderService {
         if ("shipping".equalsIgnoreCase(scope) || "delivery".equalsIgnoreCase(scope)) {
             return status == OrderStatus.SHIPPING
                     || status == OrderStatus.DELIVERING
-                    || status == OrderStatus.DELIVERED;
+                    || status == OrderStatus.DELIVERED
+                    || status == OrderStatus.RETURN_REQUESTED
+                    || status == OrderStatus.REFUND_REQUESTED
+                    || status == OrderStatus.RETURNED;
         }
         if ("orders".equalsIgnoreCase(scope)) {
             return status == OrderStatus.ORDERED
@@ -339,6 +345,38 @@ public class OrderService {
         return toOrderView(ordersRepository.save(order));
     }
 
+    /**
+     * 반품 승인 전용 격리 메서드.
+     * 기존 updateAdminOrderStatus / refundAndRestore / cancelPayment 는 호출·수정하지 않는다.
+     */
+    public Map<String, Object> processReturnRefundWithSafety(Long orderId) {
+        Orders order = ordersRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        if (!OrderLifecycle.canApproveReturn(order.getStatus())) {
+            throw new IllegalStateException("반품 신청 건만 반품완료 처리할 수 있습니다.");
+        }
+
+        Payment payment = paymentRepository.findByOrder(order)
+                .orElseThrow(() -> new IllegalStateException("환불 대상 결제 정보가 없습니다."));
+
+        try {
+            boolean refunded = portOneRefundService.cancelPaymentForReturnRefund(
+                    payment,
+                    "관리자 반품 승인 환불"
+            );
+            if (!refunded) {
+                throw new IllegalStateException("환불 API 처리 실패: 기존 주문 상태가 유지됩니다.");
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("환불 API 처리 실패: 기존 주문 상태가 유지됩니다.");
+        }
+
+        restoreOrConsumeStock(order, true);
+        order.setStatus(OrderStatus.RETURNED);
+        return toOrderView(ordersRepository.save(order));
+    }
+
     public Map<String, Object> toOrderView(Orders order) {
         Map<String, Object> row = new HashMap<>();
         if (order == null) {
@@ -350,6 +388,10 @@ public class OrderService {
         row.put("totalAmount", order.getTotalAmount());
         row.put("discountAmount", order.getDiscountAmount());
         row.put("netAmount", order.getNetAmount());
+        row.put("deliveryFee", order.getDeliveryFee());
+        row.put("pgFee", order.getPgFee());
+        row.put("platformFee", order.getPlatformFee());
+        row.put("partnerSettlementAmount", order.getPartnerSettlementAmount());
         row.put("orderDate", order.getOrderDate());
         row.put("nonUserName", order.getNonUserName());
         row.put("trackingNumber", order.getTrackingNumber());

@@ -43,5 +43,8 @@ export const isPreparingOrLater = (status) =>
 
 export const canRequestReturn = (status) => status === 'DELIVERED';
 
+export const canTrackOrder = (status) =>
+  status === 'SHIPPING' || status === 'DELIVERED' || status === 'DELIVERING';
+
 export const productImageSrc = (product) =>
   resolveImageUrl(product?.imageUrl || product?.image);

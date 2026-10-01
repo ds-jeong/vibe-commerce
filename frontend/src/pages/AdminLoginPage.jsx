@@ -17,7 +17,7 @@ export default function AdminLoginPage() {
     })
       .then((res) => {
         if (!res.ok) {
-          throw new Error('자격 증명에 실패했습니다. 계정 정보를 확인하세요.');
+          throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.');
         }
         return res.json();
       })
@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
         }
       })
       .catch((err) => {
-        setError(err.message || '로그인 연동 중 장애가 발생했습니다.');
+        setError(err.message || '로그인에 실패했습니다. 다시 시도해 주세요.');
       });
   };
 
@@ -38,9 +38,8 @@ export default function AdminLoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-100 font-sans px-4">
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-xl">
         <div className="text-center mb-6">
-          <span className="text-3xl">👑</span>
-          <h2 className="mt-2 text-2xl font-extrabold text-gray-800 tracking-tight">VibeCommerce 관리자 로그인</h2>
-          <p className="mt-1 text-xs text-gray-400">최고관리자 백오피스 세션 자격 권한 증명</p>
+          <h2 className="mt-2 text-2xl font-semibold text-black tracking-tight">관리자 로그인</h2>
+          <p className="mt-1 text-xs text-slate-400">관리자 계정으로 로그인해 주세요.</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -76,9 +75,9 @@ export default function AdminLoginPage() {
 
           <button 
             type="submit"
-            className="w-full rounded-xl bg-gray-900 py-3.5 text-sm font-bold text-white shadow-md hover:bg-gray-800 transition active:scale-95"
+            className="w-full rounded-md bg-[#0A192F] py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E293B] transition hover:scale-[1.01]"
           >
-            보안 세션 로그인 가동
+            로그인
           </button>
         </form>
       </div>

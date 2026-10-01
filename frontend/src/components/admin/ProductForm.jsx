@@ -51,7 +51,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.message || '이미지 업로드에 실패했습니다.');
+        alert(data.message || '이미지를 업로드하지 못했습니다.');
         return;
       }
       setForm((prev) => ({ ...prev, imageUrl: data.imageUrl || '' }));
@@ -94,7 +94,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
           placeholder="이미지 URL 또는 업로드"
           className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
         />
-        <label className="whitespace-nowrap rounded-xl border px-3 py-3 text-xs font-bold text-gray-600">
+        <label className="whitespace-nowrap rounded-md border border-slate-200 px-3 py-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50">
           {uploading ? '업로드 중' : '파일'}
           <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
         </label>
@@ -107,7 +107,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
       />
       <button
         type="submit"
-        className="md:col-span-2 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white"
+        className="md:col-span-2 rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
       >
         {submitLabel || '상품 등록'}
       </button>

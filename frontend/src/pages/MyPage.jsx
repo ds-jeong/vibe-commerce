@@ -268,9 +268,9 @@ export default function MyPage() {
   };
 
   const tabs = [
-    { id: 'orders', label: '🛍️ 주문내역' },
-    { id: 'profile', label: '⚙️ 내 정보 수정' },
-    { id: 'inquiry', label: '💬 문의사항' },
+    { id: 'orders', label: '주문 내역' },
+    { id: 'profile', label: '내 정보' },
+    { id: 'inquiry', label: '1:1 문의' },
   ];
 
   if (!token) {
@@ -278,19 +278,19 @@ export default function MyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-slate-50 font-sans text-[#0A192F]">
+      <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div className="cursor-pointer" onClick={() => (window.location.href = '/')}>
-            <h1 className="text-xl font-extrabold tracking-tight text-gray-800">
-              🛍️ VibeCommerce
+            <h1 className="text-xl font-semibold tracking-tight text-black">
+              VibeCommerce
             </h1>
-            <p className="mt-0.5 text-[10px] text-gray-400">My Page</p>
+            <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-400">My Page</p>
           </div>
           <button
             type="button"
             onClick={() => (window.location.href = '/')}
-            className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100"
+            className="rounded-md px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50"
           >
             쇼핑 계속하기
           </button>
@@ -316,10 +316,10 @@ export default function MyPage() {
                   setError('');
                   setMessage('');
                 }}
-                className={`mb-1 w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
+                className={`mb-1 w-full rounded-md px-4 py-3 text-left text-sm font-semibold transition hover:scale-[1.01] ${
                   activeTab === tab.id
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'bg-[#0A192F] text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
                 }`}
               >
                 {tab.label}
@@ -355,10 +355,10 @@ export default function MyPage() {
                       key={value}
                       type="button"
                       onClick={() => setOrderStatusFilter(value)}
-                      className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${
+                      className={`rounded-md px-3 py-1.5 text-[11px] font-semibold shadow-sm transition hover:scale-[1.01] ${
                         orderStatusFilter === value
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-600'
+                          ? 'bg-[#0A192F] text-white'
+                          : 'border border-slate-200 bg-white text-slate-600'
                       }`}
                     >
                       {label}

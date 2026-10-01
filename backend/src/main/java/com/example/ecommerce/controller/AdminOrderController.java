@@ -45,6 +45,20 @@ public class AdminOrderController {
         }
     }
 
+    @PutMapping("/{id}/return-approve")
+    public ResponseEntity<?> approveReturn(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(orderService.processReturnRefundWithSafety(id));
+        } catch (IllegalArgumentException e) {
+            return fail(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (IllegalStateException e) {
+            return fail(HttpStatus.CONFLICT, e.getMessage());
+        } catch (Exception e) {
+            return fail(HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() == null ? "환불 API 처리 실패: 기존 주문 상태가 유지됩니다." : e.getMessage());
+        }
+    }
+
     private ResponseEntity<Map<String, Object>> fail(HttpStatus status, String message) {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "FAIL");

@@ -11,7 +11,9 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -21,6 +23,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class DataGeneratorService {
 
     private final JdbcTemplate jdbcTemplate;
+    private final SettlementLedgerService settlementLedgerService;
     private static final int CHUNK_SIZE = 1000;
 
     @Transactional
@@ -175,5 +178,161 @@ public class DataGeneratorService {
         if (!refundBatch.isEmpty()) {
             jdbcTemplate.batchUpdate("INSERT INTO refunds (order_id, pg_cancel_uid, refund_amount, refund_pg_fee, refund_platform_fee, net_refund_amount, refund_reason, refunded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", refundBatch);
         }
+    }
+
+    @Transactional
+    public long generateLedgerSampleData(int totalRecords) {
+        long startTime = System.currentTimeMillis();
+        int target = Math.max(totalRecords, 1);
+        List<Long> productIds = ensureSampleProducts();
+        List<Long> userIds = ensureSampleUsers();
+        Map<Long, BigDecimal> productPrices = new HashMap<>();
+        jdbcTemplate.query("SELECT id, price FROM products", (rs) -> {
+            productPrices.put(rs.getLong("id"), rs.getBigDecimal("price"));
+        });
+
+        int generatedCount = 0;
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime rangeStart = now.minusMonths(18);
+
+        while (generatedCount < target) {
+            int currentBatchSize = Math.min(CHUNK_SIZE, target - generatedCount);
+            List<Object[]> orderRows = new ArrayList<>();
+            List<Long> productChoices = new ArrayList<>();
+            List<Integer> quantities = new ArrayList<>();
+            List<BigDecimal> unitPrices = new ArrayList<>();
+
+            for (int i = 0; i < currentBatchSize; i++) {
+                String merchantUid = "LEDGER-" + UUID.randomUUID().toString().substring(0, 10).toUpperCase();
+                Long userId = userIds.get(ThreadLocalRandom.current().nextInt(userIds.size()));
+                Long productId = productIds.get(ThreadLocalRandom.current().nextInt(productIds.size()));
+                long days = ChronoUnit.DAYS.between(rangeStart, now);
+                LocalDateTime orderDate = rangeStart.plusDays(ThreadLocalRandom.current().nextLong(days + 1))
+                        .plusHours(ThreadLocalRandom.current().nextInt(24))
+                        .plusMinutes(ThreadLocalRandom.current().nextInt(60));
+
+                int ratio = ThreadLocalRandom.current().nextInt(100);
+                String status = "DELIVERED";
+                String tracking = null;
+                if (ratio < 8) {
+                    status = "PAID";
+                } else if (ratio < 18) {
+                    status = "SHIPPING";
+                    tracking = String.valueOf(1000000000000L + ThreadLocalRandom.current().nextLong(8999999999999L));
+                } else if (ratio < 23) {
+                    status = "PREPARING";
+                } else {
+                    tracking = String.valueOf(1000000000000L + ThreadLocalRandom.current().nextLong(8999999999999L));
+                }
+
+                int count = ThreadLocalRandom.current().nextInt(1, 4);
+                BigDecimal unitPrice = productPrices.get(productId);
+                if (unitPrice == null) {
+                    unitPrice = BigDecimal.valueOf(ThreadLocalRandom.current().nextInt(3, 16) * 10000L);
+                }
+                BigDecimal goods = unitPrice.multiply(BigDecimal.valueOf(count));
+                var ledger = settlementLedgerService.computeLedger(goods);
+
+                orderRows.add(new Object[]{
+                        userId,
+                        merchantUid,
+                        status,
+                        ledger.get("totalAmount"),
+                        BigDecimal.ZERO,
+                        ledger.get("totalAmount"),
+                        orderDate,
+                        ledger.get("deliveryFee"),
+                        ledger.get("pgFee"),
+                        ledger.get("platformFee"),
+                        ledger.get("partnerSettlementAmount"),
+                        tracking
+                });
+                productChoices.add(productId);
+                quantities.add(count);
+                unitPrices.add(unitPrice);
+            }
+
+            executeLedgerChunkInserts(orderRows, productChoices, quantities, unitPrices);
+            generatedCount += currentBatchSize;
+            log.info("정산 전표 샘플 청크 적재 ({}/{})", generatedCount, target);
+        }
+
+        return System.currentTimeMillis() - startTime;
+    }
+
+    private List<Long> ensureSampleProducts() {
+        List<Long> ids = jdbcTemplate.queryForList("SELECT id FROM products", Long.class);
+        if (!ids.isEmpty()) {
+            return ids;
+        }
+        String[] names = {"모던 핏 슬랙스", "오버사이즈 후드티", "스마트 무선 헤드폰", "가죽 미니멀 지갑", "세라믹 머그컵"};
+        for (int i = 1; i <= 10; i++) {
+            String name = names[ThreadLocalRandom.current().nextInt(names.length)] + " " + i;
+            BigDecimal price = BigDecimal.valueOf(ThreadLocalRandom.current().nextInt(3, 16) * 10000L);
+            jdbcTemplate.update(
+                    "INSERT INTO products (name, price, stock_quantity, image_url, description, created_at) VALUES (?, ?, 100, ?, '상세 설명', NOW())",
+                    name,
+                    price,
+                    "https://picsum.photos/seed/vibe" + i + "/80/80"
+            );
+        }
+        return jdbcTemplate.queryForList("SELECT id FROM products", Long.class);
+    }
+
+    private List<Long> ensureSampleUsers() {
+        List<Long> ids = jdbcTemplate.queryForList("SELECT id FROM users", Long.class);
+        if (!ids.isEmpty()) {
+            return ids;
+        }
+        for (int i = 1; i <= 20; i++) {
+            jdbcTemplate.update(
+                    "INSERT INTO users (user_key, password, name, phone_number, role, created_at) VALUES (?, 'password', ?, '010-1234-5678', 'USER', NOW())",
+                    "ledger" + i + "@vibe.com",
+                    "정산테스터" + i
+            );
+        }
+        return jdbcTemplate.queryForList("SELECT id FROM users", Long.class);
+    }
+
+    private void executeLedgerChunkInserts(
+            List<Object[]> orderRows,
+            List<Long> productChoices,
+            List<Integer> quantities,
+            List<BigDecimal> unitPrices
+    ) {
+        String orderSql = "INSERT INTO orders (user_id, order_merchant_uid, status, total_amount, discount_amount, net_amount, order_date, delivery_fee, pg_fee, platform_fee, partner_settlement_amount, tracking_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        jdbcTemplate.batchUpdate(orderSql, orderRows);
+
+        List<Long> lastOrderIds = jdbcTemplate.queryForList(
+                "SELECT id FROM orders WHERE order_merchant_uid LIKE 'LEDGER-%' ORDER BY id DESC LIMIT " + orderRows.size(),
+                Long.class
+        );
+
+        List<Object[]> itemBatch = new ArrayList<>();
+        List<Object[]> payBatch = new ArrayList<>();
+        List<Object[]> settleBatch = new ArrayList<>();
+
+        int idx = 0;
+        for (int i = lastOrderIds.size() - 1; i >= 0; i--) {
+            Long orderId = lastOrderIds.get(i);
+            Object[] originOrder = orderRows.get(idx);
+            BigDecimal netAmount = (BigDecimal) originOrder[5];
+            LocalDateTime oDate = (LocalDateTime) originOrder[6];
+            BigDecimal pgFee = (BigDecimal) originOrder[8];
+            BigDecimal platformFee = (BigDecimal) originOrder[9];
+            BigDecimal partner = (BigDecimal) originOrder[10];
+            Long productId = productChoices.get(idx);
+            Integer count = quantities.get(idx);
+            BigDecimal unitPrice = unitPrices.get(idx);
+
+            itemBatch.add(new Object[]{orderId, productId, unitPrice, count});
+            payBatch.add(new Object[]{orderId, "imp_" + UUID.randomUUID().toString().substring(0, 8), "PORTONE", "CARD", netAmount, oDate});
+            settleBatch.add(new Object[]{orderId, netAmount, pgFee, platformFee, partner, oDate});
+            idx++;
+        }
+
+        jdbcTemplate.batchUpdate("INSERT INTO order_items (order_id, product_id, order_price, count) VALUES (?, ?, ?, ?)", itemBatch);
+        jdbcTemplate.batchUpdate("INSERT INTO payments (order_id, pg_imp_uid, pg_provider, pay_method, amount, paid_at) VALUES (?, ?, ?, ?, ?, ?)", payBatch);
+        jdbcTemplate.batchUpdate("INSERT INTO settlements (order_id, total_sales_amount, pg_fee, platform_fee, net_settlement_amount, settled_at) VALUES (?, ?, ?, ?, ?, ?)", settleBatch);
     }
 }

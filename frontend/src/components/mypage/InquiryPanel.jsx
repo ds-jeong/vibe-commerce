@@ -22,7 +22,7 @@ export default function InquiryPanel({
         <button
           type="button"
           onClick={() => setShowInquiryForm((prev) => !prev)}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white"
+          className="rounded-md bg-[#0A192F] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
           1:1 문의하기
         </button>
@@ -48,7 +48,7 @@ export default function InquiryPanel({
           <button
             type="submit"
             disabled={loading}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white"
+            className="rounded-md bg-[#0A192F] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:opacity-50"
           >
             등록
           </button>

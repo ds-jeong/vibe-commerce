@@ -71,4 +71,39 @@ public class SettlementBatchService {
 
         log.info("=== [정산 배치 완료] {} 장부 이관 성공 (총순매출: {}, 순수익: {}) ===", targetDate, netSales, netSettlement);
     }
+
+    /**
+     * 주문 원장의 수수료 컬럼을 SUM/GROUP BY 하여 일별 요약 스냅샷을 재작성한다.
+     * 기존 executeSettlementBatchForDate 집계 공식은 변경하지 않는다.
+     */
+    @Transactional
+    public int rebuildDailySummariesFromOrderLedger() {
+        jdbcTemplate.update(
+                "DELETE FROM daily_settlement_summaries ds "
+                        + "WHERE NOT EXISTS ("
+                        + "SELECT 1 FROM orders o WHERE CAST(o.order_date AS date) = ds.summary_date)"
+        );
+        int upserted = jdbcTemplate.update(
+                "INSERT INTO daily_settlement_summaries "
+                        + "(summary_date, daily_total_sales, daily_total_pg_fee, daily_total_platform_fee, daily_net_settlement, total_order_count) "
+                        + "SELECT CAST(order_date AS date), "
+                        + "COALESCE(SUM(COALESCE(total_amount, net_amount)), 0), "
+                        + "COALESCE(SUM(COALESCE(pg_fee, 0)), 0), "
+                        + "COALESCE(SUM(COALESCE(platform_fee, 0)), 0), "
+                        + "COALESCE(SUM(COALESCE(partner_settlement_amount, 0)), 0), "
+                        + "COUNT(*) "
+                        + "FROM orders "
+                        + "WHERE order_date IS NOT NULL "
+                        + "AND (status IS NULL OR status NOT IN ('CANCELLED','RETURNED','REFUNDED')) "
+                        + "GROUP BY CAST(order_date AS date) "
+                        + "ON CONFLICT (summary_date) DO UPDATE SET "
+                        + "daily_total_sales = EXCLUDED.daily_total_sales, "
+                        + "daily_total_pg_fee = EXCLUDED.daily_total_pg_fee, "
+                        + "daily_total_platform_fee = EXCLUDED.daily_total_platform_fee, "
+                        + "daily_net_settlement = EXCLUDED.daily_net_settlement, "
+                        + "total_order_count = EXCLUDED.total_order_count"
+        );
+        log.info("Rebuilt daily settlement summaries from order ledger ({} date buckets)", upserted);
+        return upserted;
+    }
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveImageUrl } from '../../utils/media';
 
 export default function CartModal(props) {
   const {
@@ -24,21 +25,21 @@ export default function CartModal(props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/50 px-4 py-8 animate-in fade-in">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl transition duration-300 ease-out">
-        <div className="flex items-center justify-between border-b border-gray-100 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 px-4 py-8">
+      <div className="w-full max-w-2xl rounded-md bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 p-6">
           <div>
-            <h3 className="text-xl font-extrabold text-gray-800">🛒 장바구니</h3>
-            <p className="mt-1 text-xs text-gray-400">
+            <h3 className="text-xl font-semibold text-black">장바구니</h3>
+            <p className="mt-1 text-xs text-slate-400">
               {userToken
-                ? '회원님의 DB 장바구니입니다.'
-                : '현재 담겨있는 상품을 확인하세요.'}
+                ? '회원 장바구니입니다.'
+                : '담고 있는 상품을 확인해 주세요.'}
             </p>
           </div>
           <button
             type="button"
             onClick={() => setIsCartModalOpen(false)}
-            className="rounded-lg px-3 py-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-md px-3 py-2 text-slate-400 hover:bg-slate-50 hover:text-black"
           >
             ✕
           </button>
@@ -47,14 +48,14 @@ export default function CartModal(props) {
         <div className="max-h-[60vh] overflow-y-auto p-6">
           {guestCart.length === 0 ? (
             <div className="py-16 text-center">
-              <div className="text-5xl">🛒</div>
-              <h4 className="mt-4 text-base font-bold text-gray-700">
-                장바구니가 비어있습니다.
+              <h4 className="text-base font-semibold text-black">
+                장바구니가 비어 있습니다.
               </h4>
+              <p className="mt-2 text-sm text-slate-400">원하는 상품을 담아 보세요.</p>
             </div>
           ) : (
             <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <input
                   type="checkbox"
                   checked={
@@ -76,7 +77,7 @@ export default function CartModal(props) {
               {guestCart.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-xl border border-gray-200 p-4"
+                  className="rounded-md border border-slate-100 p-4"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <input
@@ -92,29 +93,37 @@ export default function CartModal(props) {
                       }}
                       className="h-4 w-4 shrink-0"
                     />
+                    <img
+                      src={resolveImageUrl(item.imageUrl || item.image)}
+                      alt={item.name}
+                      className="h-14 w-14 rounded-md object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = '/images/default-product.svg';
+                      }}
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-gray-800">
+                      <p className="truncate text-sm font-semibold text-black">
                         {item.name}
                       </p>
-                      <p className="mt-1 text-xs text-gray-400">
+                      <p className="mt-1 text-xs text-slate-400">
                         {formatPrice(item.price)}원
                       </p>
                     </div>
-                    <div className="flex items-center rounded-lg border border-gray-200">
+                    <div className="flex items-center rounded-md border border-slate-200">
                       <button
                         type="button"
                         onClick={() => decreaseCartQuantity(item.id)}
-                        className="h-9 w-9 text-gray-500"
+                        className="h-9 w-9 text-slate-500"
                       >
                         −
                       </button>
-                      <span className="flex h-9 min-w-10 items-center justify-center border-x text-sm font-bold">
+                      <span className="flex h-9 min-w-10 items-center justify-center border-x text-sm font-semibold">
                         {item.quantity}
                       </span>
                       <button
                         type="button"
                         onClick={() => increaseCartQuantity(item.id)}
-                        className="h-9 w-9 text-gray-500"
+                        className="h-9 w-9 text-slate-500"
                       >
                         +
                       </button>
@@ -122,9 +131,9 @@ export default function CartModal(props) {
                     <button
                       type="button"
                       onClick={() => removeFromCart(item.id)}
-                      className="rounded-lg p-2 text-gray-300 hover:text-red-500"
+                      className="rounded-md p-2 text-xs font-semibold text-slate-400 hover:text-black"
                     >
-                      🗑️
+                      삭제
                     </button>
                   </div>
                 </div>
@@ -134,16 +143,16 @@ export default function CartModal(props) {
         </div>
 
         {guestCart.length > 0 && (
-          <div className="border-t border-gray-100 p-6">
+          <div className="border-t border-slate-100 p-6">
             <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-bold text-gray-700">
+              <p className="text-sm font-semibold text-slate-700">
                 {checkedCartItems.reduce(
                   (total, item) => total + Number(item.quantity || 0),
                   0
                 )}
-                개
+                개 선택
               </p>
-              <p className="text-xl font-extrabold text-blue-600">
+              <p className="text-xl font-semibold text-black">
                 {formatPrice(checkedCartTotalPrice)}원
               </p>
             </div>
@@ -151,7 +160,7 @@ export default function CartModal(props) {
               <button
                 type="button"
                 onClick={clearCart}
-                className="rounded-xl border border-red-100 bg-white px-4 py-3 text-xs font-bold text-red-500"
+                className="rounded-md border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-600"
               >
                 전체 삭제
               </button>
@@ -159,9 +168,9 @@ export default function CartModal(props) {
                 type="button"
                 onClick={handleCartOrder}
                 disabled={memberOrderLoading}
-                className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+                className="flex-1 rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:opacity-50"
               >
-                장바구니 주문하기
+                주문하기
               </button>
             </div>
           </div>

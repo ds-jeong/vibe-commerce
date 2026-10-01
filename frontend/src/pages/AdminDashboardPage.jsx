@@ -3,25 +3,31 @@ import AdminStatsChart from '../components/admin/AdminStatsChart';
 import AdminProductDashboard from '../components/admin/AdminProductDashboard';
 import AdminOrderDashboard from '../components/admin/AdminOrderDashboard';
 import AdminInquiryDashboard from '../components/admin/AdminInquiryDashboard';
+import AdminAnalyticsTab from '../components/admin/AdminAnalyticsTab';
 import { ORDER_STATUS_LABEL } from '../utils/validation';
 import { adminAuthFail, adminHeaders } from '../utils/adminApi';
 
 export default function AdminDashboardPage() {
   const [tab, setTab] = useState('dashboard');
+  const [grain, setGrain] = useState('daily');
   const [data, setData] = useState([]);
   const [liveStats, setLiveStats] = useState(null);
 
   const loadDashboard = useCallback(() => {
     const headers = adminHeaders();
-    fetch('/api/admin/dashboard-stats', { headers })
+    fetch(`/api/admin/analytics/sales-trend?grain=${grain}`, { headers })
       .then((res) => {
         if (adminAuthFail(res)) return [];
         return res.json();
       })
       .then((stats) => {
-        if (Array.isArray(stats)) {
+        if (Array.isArray(stats) && stats.length > 0) {
           setData(stats);
+          return;
         }
+        return fetch('/api/admin/dashboard-stats', { headers })
+          .then((res) => (res.ok ? res.json() : []))
+          .then((fallback) => setData(Array.isArray(fallback) ? fallback : []));
       })
       .catch(() => setData([]));
 
@@ -29,7 +35,7 @@ export default function AdminDashboardPage() {
       .then((res) => (res.ok ? res.json() : {}))
       .then((stats) => setLiveStats(stats || {}))
       .catch(() => setLiveStats({}));
-  }, []);
+  }, [grain]);
 
   useEffect(() => {
     if (tab === 'dashboard') {
@@ -75,25 +81,26 @@ export default function AdminDashboardPage() {
 
   const tabs = [
     { id: 'dashboard', label: '대시보드' },
+    { id: 'analytics', label: '판매/문의 통계' },
     { id: 'products', label: '상품 관리' },
     { id: 'orders', label: '주문/배송' },
     { id: 'inquiries', label: '1:1 문의' },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 font-sans">
-      <div className="mb-8 flex items-center justify-between border-b border-gray-200 pb-4">
+    <div className="min-h-screen bg-slate-50 p-6 font-sans text-[#0A192F]">
+      <div className="mb-8 flex items-center justify-between border-b border-slate-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-800">
-            👑 VibeCommerce 최고관리자 백오피스
+          <h1 className="text-2xl font-semibold tracking-tight text-black">
+            VibeCommerce 관리자
           </h1>
-          <div className="mt-1 text-sm font-medium text-gray-400">실데이터 연동 운영 콘솔</div>
+          <div className="mt-1 text-sm font-medium text-slate-400">매출·주문 운영 콘솔</div>
         </div>
         <button
           onClick={handleDownloadExcel}
-          className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 active:scale-95"
+          className="flex items-center gap-2 rounded-md bg-[#0A192F] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
-          💚 정산 원장 Excel 다운로드
+          정산 내역 다운로드
         </button>
       </div>
 
@@ -103,8 +110,8 @@ export default function AdminDashboardPage() {
             key={item.id}
             type="button"
             onClick={() => setTab(item.id)}
-            className={`rounded-xl px-4 py-2 text-sm font-bold ${
-              tab === item.id ? 'bg-blue-600 text-white' : 'border bg-white text-gray-600'
+            className={`rounded-md px-4 py-2 text-sm font-semibold transition hover:scale-[1.01] ${
+              tab === item.id ? 'bg-[#0A192F] text-white' : 'border border-slate-200 bg-white text-slate-600'
             }`}
           >
             {item.label}
@@ -113,14 +120,36 @@ export default function AdminDashboardPage() {
       </div>
 
       {tab === 'dashboard' && (
-        <AdminStatsChart
-          data={data}
-          liveStats={liveStats}
-          totalSales={totalSales}
-          totalSettlement={totalSettlement}
-          pieData={pieData}
-        />
+        <>
+          <div className="mb-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setGrain('daily')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                grain === 'daily' ? 'bg-[#0A192F] text-white' : 'border bg-white text-slate-600'
+              }`}
+            >
+              일별
+            </button>
+            <button
+              type="button"
+              onClick={() => setGrain('monthly')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold ${
+                grain === 'monthly' ? 'bg-[#0A192F] text-white' : 'border bg-white text-slate-600'
+              }`}
+            >
+              월별
+            </button>
+          </div>
+          <AdminStatsChart
+            data={data}
+            totalSales={totalSales}
+            totalSettlement={totalSettlement}
+            pieData={pieData}
+          />
+        </>
       )}
+      {tab === 'analytics' && <AdminAnalyticsTab />}
       {tab === 'products' && <AdminProductDashboard />}
       {tab === 'orders' && <AdminOrderDashboard />}
       {tab === 'inquiries' && <AdminInquiryDashboard />}

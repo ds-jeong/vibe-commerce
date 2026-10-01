@@ -3,11 +3,10 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   BarChart, Bar, Legend, PieChart, Pie, Cell
 } from 'recharts';
-import { INQUIRY_STATUS_LABEL } from '../../utils/validation';
 
 const COLORS = ['#3B82F6', '#10B981', '#EF4444', '#F59E0B', '#8B5CF6'];
 
-export default function AdminStatsChart({ data, liveStats, totalSales, totalSettlement, pieData }) {
+export default function AdminStatsChart({ data, totalSales, totalSettlement, pieData }) {
   const chartData = Array.isArray(data) ? data : [];
 
   return (
@@ -65,24 +64,8 @@ export default function AdminStatsChart({ data, liveStats, totalSales, totalSett
         </div>
 
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-3">
-          <h2 className="mb-4 text-lg font-bold text-gray-700">📊 상품별 판매 통계 / 문의 현황</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              {(liveStats?.productSales || []).map((row) => (
-                <p key={row.name} className="text-sm text-gray-700">
-                  {row.name}: {row.quantity}개 / ₩{Number(row.amount || 0).toLocaleString()}
-                </p>
-              ))}
-            </div>
-            <div>
-              {(liveStats?.inquiry || []).map((row) => (
-                <p key={row.status} className="text-sm text-gray-700">
-                  {INQUIRY_STATUS_LABEL[row.status] || row.status}: {row.count}건
-                </p>
-              ))}
-            </div>
-          </div>
-          <div className="mt-6 flex w-full items-center justify-center" style={{ height: '320px' }}>
+          <h2 className="mb-4 text-lg font-bold text-gray-700">📊 수수료·정산 구성</h2>
+          <div className="flex w-full items-center justify-center" style={{ height: '320px' }}>
             <BarChart width={1100} height={300} data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
               <XAxis dataKey="date" stroke="#9CA3AF" tickLine={false} fontSize={12} />

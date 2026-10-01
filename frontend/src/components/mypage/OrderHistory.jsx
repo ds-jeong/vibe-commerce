@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import {
   ORDER_STATUS_LABEL,
   canRequestReturn,
+  canTrackOrder,
   canUserCancel,
   isPreparingOrLater,
 } from '../../utils/validation';
@@ -27,7 +28,7 @@ export default function OrderHistory({
   const openTracking = (order) => {
     const href = trackingUrl(order?.trackingNumber);
     if (!href) {
-      alert('등록된 운송장 번호가 없습니다.');
+      alert('운송장 번호가 아직 등록되지 않았습니다.');
       return;
     }
     window.open(href, '_blank', 'noopener,noreferrer');
@@ -41,7 +42,7 @@ export default function OrderHistory({
         rows.map((order) => {
           const status = order?.status || 'ORDERED';
           const items = Array.isArray(order?.orderItems) ? order.orderItems : [];
-          const canTrack = status === 'SHIPPING' || status === 'DELIVERED' || status === 'DELIVERING';
+          const canTrack = canTrackOrder(status);
           return (
             <div
               key={order?.id || order?.orderMerchantUid}
@@ -69,25 +70,25 @@ export default function OrderHistory({
                   <button
                     type="button"
                     onClick={() => openTracking(order)}
-                    className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600"
+                    className="rounded-md bg-[#0A192F] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
                   >
-                    📦 배송조회
+                    배송조회
                   </button>
                 ) : null}
                 {canUserCancel(status) ? (
                   <button
                     type="button"
                     onClick={() => onCancel(order.id)}
-                    className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-500"
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
                   >
-                    즉시 주문취소
+                    주문 취소
                   </button>
                 ) : null}
                 {isPreparingOrLater(status) && !canRequestReturn(status) && !canTrack ? (
                   <button
                     type="button"
                     disabled
-                    className="rounded-lg bg-gray-100 px-3 py-2 text-xs font-bold text-gray-400"
+                    className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-400"
                   >
                     취소 불가
                   </button>
@@ -96,7 +97,7 @@ export default function OrderHistory({
                   <button
                     type="button"
                     onClick={() => onReturn(order.id)}
-                    className="rounded-lg bg-amber-50 px-3 py-2 text-xs font-bold text-amber-600"
+                    className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
                   >
                     반품 신청
                   </button>

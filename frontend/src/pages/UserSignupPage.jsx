@@ -433,7 +433,7 @@ export default function UserSignupPage() {
       .then((resData) => {
         if (resData.status === 'SUCCESS') {
           alert(
-            `🎉 회원가입이 완료되었습니다.\n${name}님의 회원 계정과 배송지 정보가 등록되었습니다.`
+            `회원가입이 완료되었습니다.\n${name}님, 로그인해 주세요.`
           );
 
           window.location.href = '/login';
@@ -715,7 +715,7 @@ export default function UserSignupPage() {
             <button
               type="button"
               onClick={handleAddressSearch}
-              className="w-full rounded-xl bg-gray-800 py-3 text-sm font-bold text-white shadow-md hover:bg-gray-900 transition"
+              className="w-full rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
             >
               📍 주소 찾기
             </button>
@@ -785,7 +785,7 @@ export default function UserSignupPage() {
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white shadow-md hover:bg-blue-700 transition"
+            className="w-full rounded-md bg-[#0A192F] py-3.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
           >
             회원가입 완료
           </button>

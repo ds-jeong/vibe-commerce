@@ -10,7 +10,7 @@ export default function ResponsiveHeader({
   handleSearchProducts,
 }) {
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/95 backdrop-blur transition-shadow duration-300">
+    <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div
           className="cursor-pointer"
@@ -18,11 +18,11 @@ export default function ResponsiveHeader({
             window.location.href = '/';
           }}
         >
-          <h1 className="text-lg font-extrabold tracking-tight text-gray-800 sm:text-xl">
-            🛍️ VibeCommerce
+          <h1 className="text-lg font-semibold tracking-tight text-black sm:text-xl">
+            VibeCommerce
           </h1>
-          <p className="mt-0.5 text-[10px] text-gray-400">
-            VibeCommerce Shopping
+          <p className="mt-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-400">
+            Minimal Store
           </p>
         </div>
 
@@ -33,12 +33,12 @@ export default function ResponsiveHeader({
           <input
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
-            placeholder="상품명 검색 (니트, 셔츠...)"
-            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm outline-none transition focus:border-blue-500 focus:bg-white"
+            placeholder="상품 검색"
+            className="w-full rounded-md border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm outline-none transition focus:border-[#0A192F] focus:bg-white"
           />
           <button
             type="submit"
-            className="whitespace-nowrap rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-blue-700"
+            className="whitespace-nowrap rounded-md bg-[#0A192F] px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
           >
             검색
           </button>
@@ -50,7 +50,7 @@ export default function ResponsiveHeader({
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-red-500"
+                className="rounded-md px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-black"
               >
                 로그아웃
               </button>
@@ -59,9 +59,9 @@ export default function ResponsiveHeader({
                 onClick={() => {
                   window.location.href = '/mypage';
                 }}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-600 transition hover:bg-blue-50 hover:text-blue-600"
+                className="rounded-md px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-black"
               >
-                👤 마이페이지
+                마이페이지
               </button>
             </>
           ) : (
@@ -71,7 +71,7 @@ export default function ResponsiveHeader({
                 onClick={() => {
                   window.location.href = '/login';
                 }}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-blue-600"
+                className="rounded-md px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-black"
               >
                 로그인
               </button>
@@ -80,7 +80,7 @@ export default function ResponsiveHeader({
                 onClick={() => {
                   window.location.href = '/login?tab=guest';
                 }}
-                className="rounded-xl px-3 py-2 text-xs font-bold text-blue-600 transition hover:bg-blue-50"
+                className="rounded-md px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-black"
               >
                 비회원 주문조회
               </button>
@@ -90,11 +90,11 @@ export default function ResponsiveHeader({
           <button
             type="button"
             onClick={() => setIsCartModalOpen(true)}
-            className="relative rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+            className="relative rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-black shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
           >
-            🛒 장바구니
+            장바구니
             {cartItemCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-extrabold text-white shadow">
+              <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#0A192F] px-1.5 text-[11px] font-semibold text-white">
                 {cartItemCount}
               </span>
             )}

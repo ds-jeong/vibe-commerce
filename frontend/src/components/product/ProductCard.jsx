@@ -3,8 +3,8 @@ import { resolveImageUrl } from '../../utils/media';
 
 function ProductCard({ product, formatPrice, onAddToCart, onBuyNow }) {
   return (
-    <div className="overflow-hidden rounded-2xl border bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
-      <div className="flex h-52 items-center justify-center bg-gray-100">
+    <div className="overflow-hidden rounded-md border border-slate-100 bg-white shadow-sm transition duration-300 hover:scale-[1.01] hover:shadow-md">
+      <div className="flex h-52 items-center justify-center bg-slate-50">
         <img
           src={resolveImageUrl(product.imageUrl || product.image)}
           alt={product.name}
@@ -15,25 +15,25 @@ function ProductCard({ product, formatPrice, onAddToCart, onBuyNow }) {
         />
       </div>
       <div className="p-5">
-        <h3 className="line-clamp-2 min-h-[48px] text-base font-bold">{product.name}</h3>
+        <h3 className="line-clamp-2 min-h-[48px] text-base font-semibold text-black">{product.name}</h3>
         <div className="mt-4">
-          <span className="text-xl font-extrabold">{formatPrice(product.price)}</span>
-          <span className="ml-1 text-sm text-gray-500">원</span>
+          <span className="text-xl font-semibold tracking-tight text-black">{formatPrice(product.price)}</span>
+          <span className="ml-1 text-sm text-slate-500">원</span>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onAddToCart(product)}
-            className="rounded-xl border py-3 text-xs font-bold transition hover:bg-blue-50"
+            className="rounded-md border border-slate-200 py-3 text-xs font-semibold text-slate-700 transition hover:scale-[1.01] hover:bg-slate-50"
           >
-            🛒 담기
+            장바구니
           </button>
           <button
             type="button"
             onClick={() => onBuyNow(product)}
-            className="rounded-xl bg-blue-600 py-3 text-xs font-bold text-white transition hover:bg-blue-700"
+            className="rounded-md bg-[#0A192F] py-3 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
           >
-            ⚡ 바로구매
+            구매하기
           </button>
         </div>
       </div>

@@ -26,7 +26,7 @@ export function unwrapPage(payload) {
 
 export function adminAuthFail(res) {
   if (res.status === 403 || res.status === 401) {
-    alert('최고관리자 보안 권한 전표가 없거나 만료되었습니다.');
+    alert('로그인이 만료되었습니다. 다시 로그인해 주세요.');
     window.location.href = '/admin/login';
     return true;
   }
