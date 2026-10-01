@@ -294,10 +294,37 @@ export default function ProductListPage() {
   };
 
   // =========================================================
+  // 로그아웃
+  // =========================================================
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem('userToken');
+
+    try {
+      if (token) {
+        await fetch('/api/user/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+    } catch (error) {
+      console.error('로그아웃 API 호출 오류:', error);
+    } finally {
+      localStorage.removeItem('userToken');
+      localStorage.setItem('guestCart', '[]');
+      setGuestCart([]);
+      window.location.href = '/';
+    }
+  };
+
+  // =========================================================
   // 장바구니 담기
   // =========================================================
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = async (product) => {
     const token = localStorage.getItem('userToken');
 
     // =======================================================
@@ -305,10 +332,48 @@ export default function ProductListPage() {
     // =======================================================
 
     if (token) {
-      alert(
-        '회원 장바구니 DB 연동 준비가 완료되었습니다.\n\n' +
-          '현재는 회원 장바구니 조회 기능이 연결되어 있습니다.'
-      );
+      try {
+        const response = await fetch('/api/cart/add', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            quantity: 1,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response
+            .json()
+            .catch(() => ({}));
+
+          throw new Error(
+            data.message ||
+              '회원 장바구니 담기에 실패했습니다.'
+          );
+        }
+
+        await refreshCartList();
+
+        alert(
+          `"${product.name}" 상품을 장바구니에 담았습니다.`
+        );
+      } catch (error) {
+        console.error(
+          '회원 장바구니 담기 오류:',
+          error
+        );
+
+        alert(
+          error.message ||
+            '회원 장바구니 담기 중 오류가 발생했습니다.'
+        );
+      }
 
       return;
     }
@@ -420,14 +485,51 @@ export default function ProductListPage() {
   // 장바구니 상품 삭제
   // =========================================================
 
-  const removeFromCart = (productId) => {
+  const removeFromCart = async (productId) => {
     const token = localStorage.getItem('userToken');
 
-    // 회원 DB 삭제 API는 아직 연결하지 않음
     if (token) {
-      alert(
-        '회원 장바구니 삭제 API 연결이 필요합니다.'
-      );
+      try {
+        const response = await fetch(
+          `/api/cart/${productId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response
+            .json()
+            .catch(() => ({}));
+
+          throw new Error(
+            data.message ||
+              '회원 장바구니 삭제에 실패했습니다.'
+          );
+        }
+
+        setGuestCart((prevCart) =>
+          prevCart.filter(
+            (item) =>
+              Number(item.id) !==
+              Number(productId)
+          )
+        );
+      } catch (error) {
+        console.error(
+          '회원 장바구니 삭제 오류:',
+          error
+        );
+
+        alert(
+          error.message ||
+            '회원 장바구니 삭제 중 오류가 발생했습니다.'
+        );
+      }
 
       return;
     }
@@ -444,18 +546,7 @@ export default function ProductListPage() {
   // 장바구니 전체 비우기
   // =========================================================
 
-  const clearCart = () => {
-    const token = localStorage.getItem('userToken');
-
-    // 회원 DB 전체 삭제 API는 아직 연결하지 않음
-    if (token) {
-      alert(
-        '회원 장바구니 전체 삭제 API 연결이 필요합니다.'
-      );
-
-      return;
-    }
-
+  const clearCart = async () => {
     if (guestCart.length === 0) {
       return;
     }
@@ -465,6 +556,48 @@ export default function ProductListPage() {
     );
 
     if (!confirmed) {
+      return;
+    }
+
+    const token = localStorage.getItem('userToken');
+
+    if (token) {
+      try {
+        const response = await fetch(
+          '/api/cart/clear',
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response
+            .json()
+            .catch(() => ({}));
+
+          throw new Error(
+            data.message ||
+              '회원 장바구니 전체 삭제에 실패했습니다.'
+          );
+        }
+
+        setGuestCart([]);
+      } catch (error) {
+        console.error(
+          '회원 장바구니 전체 삭제 오류:',
+          error
+        );
+
+        alert(
+          error.message ||
+            '회원 장바구니 전체 삭제 중 오류가 발생했습니다.'
+        );
+      }
+
       return;
     }
 
@@ -1098,9 +1231,13 @@ export default function ProductListPage() {
             {/* 로그인 상태 */}
 
             {userToken ? (
-              <span className="hidden rounded-full bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600 sm:block">
-                👤 회원
-              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-xl px-3 py-2 text-xs font-bold text-gray-500 transition hover:bg-gray-100 hover:text-red-500"
+              >
+                로그아웃
+              </button>
             ) : (
               <button
                 type="button"

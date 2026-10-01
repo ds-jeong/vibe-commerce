@@ -122,4 +122,12 @@ public class UserAuthController {
                     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
                 });
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> userLogout() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "SUCCESS");
+        response.put("message", "로그아웃되었습니다.");
+        return ResponseEntity.ok(response);
+    }
 }
