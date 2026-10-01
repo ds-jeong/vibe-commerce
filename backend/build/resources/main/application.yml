@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: vibe-commerce
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce
+    username: myuser
+    password: mypassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        format_sql: true
+        default_batch_fetch_size: 100
+    open-in-view: false
+server:
+  port: 8080

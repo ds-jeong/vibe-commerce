@@ -1,0 +1,10 @@
+@tailwind base;
+@with @tailwind components;
+@tailwind utilities;
+
+/* 최고관리자 백오피스용 모던 폰트 가독성 보정 스펙 */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
