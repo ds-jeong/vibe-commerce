@@ -1,6 +1,7 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.domain.Inquiry;
+import com.example.ecommerce.global.PagingSupport;
 import com.example.ecommerce.service.InquiryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,9 +23,15 @@ public class InquiryController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getMyInquiries(@AuthenticationPrincipal String username) {
+    public ResponseEntity<?> getMyInquiries(
+            @AuthenticationPrincipal String username,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         try {
             List<Inquiry> inquiries = inquiryService.getMyInquiries(username);
+            if (PagingSupport.isPaged(page, size)) {
+                return ResponseEntity.ok(PagingSupport.slice(inquiries, page, size));
+            }
             return ResponseEntity.ok(inquiries);
         } catch (IllegalArgumentException e) {
             return fail(HttpStatus.NOT_FOUND, e.getMessage());

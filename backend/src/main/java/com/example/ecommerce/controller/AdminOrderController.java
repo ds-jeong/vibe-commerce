@@ -19,18 +19,29 @@ public class AdminOrderController {
     }
 
     @GetMapping
-    public ResponseEntity<?> list() {
-        return ResponseEntity.ok(orderService.getAllOrdersForAdmin());
+    public ResponseEntity<?> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            @RequestParam(required = false) String scope) {
+        return ResponseEntity.ok(
+                orderService.searchAdminOrders(page, size, keyword, dateFrom, dateTo, scope)
+        );
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> payload) {
+    public ResponseEntity<?> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> request) {
         try {
-            return ResponseEntity.ok(orderService.updateAdminOrderStatus(id, payload));
+            return ResponseEntity.ok(orderService.updateAdminOrderStatus(id, request));
         } catch (IllegalArgumentException e) {
             return fail(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (IllegalStateException e) {
             return fail(HttpStatus.CONFLICT, e.getMessage());
+        } catch (Exception e) {
+            return fail(HttpStatus.INTERNAL_SERVER_ERROR,
+                    e.getMessage() == null ? "주문 상태 변경 중 오류가 발생했습니다." : e.getMessage());
         }
     }
 

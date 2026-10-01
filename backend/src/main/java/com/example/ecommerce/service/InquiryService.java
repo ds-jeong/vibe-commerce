@@ -55,31 +55,51 @@ public class InquiryService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> getAllInquiriesForAdmin() {
-        return inquiryRepository.findAll().stream().map(inquiry -> {
-            Map<String, Object> row = new HashMap<>();
-            row.put("id", inquiry.getId());
-            row.put("title", inquiry.getTitle());
-            row.put("content", inquiry.getContent());
-            row.put("status", inquiry.getStatus());
-            row.put("answer", inquiry.getAnswer());
-            row.put("answeredAt", inquiry.getAnsweredAt());
-            row.put("createdAt", inquiry.getCreatedAt());
-            row.put("userKey", inquiry.getUser() == null ? null : inquiry.getUser().getUserKey());
-            return row;
-        }).toList();
+        return inquiryRepository.findAllWithUser().stream().map(this::toAdminRow).toList();
     }
 
-    public Inquiry answerInquiry(Long id, Map<String, String> payload) {
+    public Map<String, Object> answerInquiry(Long id, Map<String, Object> body) {
         Inquiry inquiry = inquiryRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("문의글을 찾을 수 없습니다."));
-        String answer = payload == null ? null : payload.get("answer");
+        String answer = extractAnswer(body);
         if (answer == null || answer.isBlank()) {
             throw new IllegalArgumentException("답변 내용을 입력해주세요.");
         }
         inquiry.setAnswer(answer.trim());
         inquiry.setAnsweredAt(LocalDateTime.now());
         inquiry.setStatus(InquiryStatus.ANSWERED);
-        return inquiryRepository.save(inquiry);
+        return toAdminRow(inquiry);
+    }
+
+    public Map<String, Object> deleteAnswer(Long id) {
+        Inquiry inquiry = inquiryRepository.findWithUserById(id)
+                .orElseThrow(() -> new IllegalArgumentException("문의글을 찾을 수 없습니다."));
+        inquiry.setAnswer(null);
+        inquiry.setAnsweredAt(null);
+        inquiry.setStatus(InquiryStatus.PENDING);
+        return toAdminRow(inquiry);
+    }
+
+    private String extractAnswer(Map<String, Object> payload) {
+        if (payload == null) {
+            return null;
+        }
+        Object raw = payload.get("answer");
+        return raw == null ? null : String.valueOf(raw);
+    }
+
+    private Map<String, Object> toAdminRow(Inquiry inquiry) {
+        Map<String, Object> row = new HashMap<>();
+        row.put("id", inquiry.getId());
+        row.put("title", inquiry.getTitle());
+        row.put("content", inquiry.getContent());
+        row.put("status", inquiry.getStatus() == null ? null : inquiry.getStatus().name());
+        row.put("answer", inquiry.getAnswer());
+        row.put("answeredAt", inquiry.getAnsweredAt());
+        row.put("createdAt", inquiry.getCreatedAt());
+        User writer = inquiry.getUser();
+        row.put("userKey", writer == null ? null : writer.getUserKey());
+        return row;
     }
 
     private User findUser(String username) {

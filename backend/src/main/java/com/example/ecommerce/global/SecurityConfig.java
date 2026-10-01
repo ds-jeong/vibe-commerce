@@ -33,7 +33,8 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 🔓 1. 비회원/회원 공통 전면 개방 채널 (상품 조회, 로그인, 비회원 주문 및 결제 검증 채널 전면 개방)
                 .requestMatchers(
-                    "/api/products/**", 
+                    "/api/products/**",
+                    "/uploads/**",
                     "/api/admin/login", 
                     "/api/user/login",
                     "/api/orders/place",   // 💡 비회원 주문서 생성을 위해 오픈

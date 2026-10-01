@@ -1,6 +1,7 @@
 package com.example.ecommerce.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Inquiry {
 
     @Id
@@ -20,6 +22,7 @@ public class Inquiry {
     private Long id;
 
     @JsonIgnore
+    @Getter(onMethod_ = @JsonIgnore)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;

@@ -19,3 +19,5 @@ server:
   port: 8080
 portone:
   api-secret: ${PORTONE_API_SECRET:}
+file:
+  upload-dir: ${FILE_UPLOAD_DIR:/app/uploads}

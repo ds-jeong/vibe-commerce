@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { trackingUrl } from '../utils/media';
+import OrderLineItems from '../components/order/OrderLineItems';
 
 export default function UserLoginPage() {
   const [activeTab, setActiveTab] = useState(
@@ -205,6 +207,25 @@ export default function UserLoginPage() {
               <p className="mt-1 text-xs text-gray-500">{String(guestOrder.orderDate || '').replace('T', ' ').slice(0, 16)}</p>
               <p className="mt-2 font-extrabold text-blue-600">{formatPrice(guestOrder.netAmount)}원</p>
               <p className="mt-1 text-xs text-gray-600">상태: {guestOrder.status}</p>
+              <div className="mt-3">
+                <OrderLineItems items={guestOrder.orderItems} formatPrice={formatPrice} />
+              </div>
+              {(guestOrder.status === 'SHIPPING' || guestOrder.status === 'DELIVERED' || guestOrder.status === 'DELIVERING') && (
+                <button
+                  type="button"
+                  className="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600"
+                  onClick={() => {
+                    const href = trackingUrl(guestOrder.trackingNumber);
+                    if (!href) {
+                      alert('등록된 운송장 번호가 없습니다.');
+                      return;
+                    }
+                    window.open(href, '_blank', 'noopener,noreferrer');
+                  }}
+                >
+                  📦 배송조회
+                </button>
+              )}
             </div>
           )}
 

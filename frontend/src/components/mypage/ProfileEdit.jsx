@@ -90,6 +90,19 @@ export default function ProfileEdit({
           placeholder="이메일"
           className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm"
         />
+        {profile?.email ? (
+          <p
+            className={`text-xs font-semibold ${
+              EMAIL_REGEX.test((profile.email || '').trim())
+                ? 'text-green-600'
+                : 'text-red-500'
+            }`}
+          >
+            {EMAIL_REGEX.test((profile.email || '').trim())
+              ? '사용 가능한 이메일 형식입니다.'
+              : '올바른 이메일 형식으로 입력해 주세요.'}
+          </p>
+        ) : null}
         <input
           required
           value={profile?.phoneNumber || ''}

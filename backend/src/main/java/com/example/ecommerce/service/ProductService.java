@@ -2,7 +2,6 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.domain.Product;
 import com.example.ecommerce.repository.ProductRepository;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,16 +15,31 @@ import java.util.Map;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final FileStorageService fileStorageService;
 
-    // ✨ 롬복 의존성 락을 차단하기 위해 명시적 수동 생성자 주입 명세 수립
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository, FileStorageService fileStorageService) {
         this.productRepository = productRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     @Transactional(readOnly = true)
-    public Page<Product> getProducts(int page, int size) {
-        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"));
-        return productRepository.findAll(pageable);
+    public Object getProducts(Integer page, Integer size, String keyword) {
+        String trimmed = keyword == null ? "" : keyword.trim();
+        Sort sort = Sort.by(Sort.Direction.DESC, "id");
+        boolean paged = page != null && size != null && page >= 0 && size > 0;
+
+        if (paged) {
+            Pageable pageable = PageRequest.of(page, size, sort);
+            if (trimmed.isEmpty()) {
+                return productRepository.findAll(pageable);
+            }
+            return productRepository.findByNameContainingIgnoreCase(trimmed, pageable);
+        }
+
+        if (trimmed.isEmpty()) {
+            return productRepository.findAll(sort);
+        }
+        return productRepository.findByNameContainingIgnoreCase(trimmed, sort);
     }
 
     public Product createProduct(Map<String, Object> payload) {
@@ -43,10 +57,10 @@ public class ProductService {
     }
 
     public void deleteProduct(Long id) {
-        if (!productRepository.existsById(id)) {
-            throw new IllegalArgumentException("상품을 찾을 수 없습니다.");
-        }
-        productRepository.deleteById(id);
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        fileStorageService.deleteIfStored(product.getImageUrl());
+        productRepository.delete(product);
     }
 
     @Transactional(readOnly = true)

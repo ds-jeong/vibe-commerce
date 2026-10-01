@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import OrderHistory from '../components/mypage/OrderHistory';
 import ProfileEdit from '../components/mypage/ProfileEdit';
 import InquiryPanel from '../components/mypage/InquiryPanel';
+import Pagination from '../components/common/Pagination';
 
 export default function MyPage() {
   const token = localStorage.getItem('userToken');
@@ -25,6 +26,11 @@ export default function MyPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('ALL');
+  const [orderPage, setOrderPage] = useState(0);
+  const [orderTotalPages, setOrderTotalPages] = useState(0);
+  const orderPageSize = 8;
 
   useEffect(() => {
     if (!token) {
@@ -50,10 +56,36 @@ export default function MyPage() {
     'Content-Type': 'application/json',
   };
 
-  const loadOrders = async () => {
-    const res = await fetch('/api/orders/my', { headers: authHeaders });
-    const data = await res.json().catch(() => []);
-    setOrders(Array.isArray(data) ? data : []);
+  const unwrapPage = (data) => {
+    if (Array.isArray(data)) {
+      return { rows: data, totalPages: data.length > 0 ? 1 : 0 };
+    }
+    if (Array.isArray(data?.content)) {
+      return {
+        rows: data.content,
+        totalPages: Number(data.totalPages || 0),
+      };
+    }
+    return { rows: [], totalPages: 0 };
+  };
+
+  const loadOrders = async (page = orderPage) => {
+    setPageLoading(true);
+    try {
+      const res = await fetch(
+        `/api/orders/my?page=${page}&size=${orderPageSize}`,
+        { headers: authHeaders }
+      );
+      const data = await res.json().catch(() => []);
+      const parsed = unwrapPage(data);
+      setOrders(parsed.rows);
+      setOrderTotalPages(parsed.totalPages);
+    } catch (err) {
+      setError(err.message || '주문 내역을 불러오지 못했습니다.');
+      setOrders([]);
+    } finally {
+      setPageLoading(false);
+    }
   };
 
   const loadProfile = async () => {
@@ -75,17 +107,17 @@ export default function MyPage() {
   const loadInquiries = async () => {
     const res = await fetch('/api/inquiries', { headers: authHeaders });
     const data = await res.json().catch(() => []);
-    setInquiries(Array.isArray(data) ? data : []);
+    setInquiries(Array.isArray(data) ? data : Array.isArray(data?.content) ? data.content : []);
   };
 
   useEffect(() => {
     if (!token) {
       return;
     }
-    loadOrders();
+    loadOrders(orderPage);
     loadProfile();
     loadInquiries();
-  }, [token]);
+  }, [token, orderPage]);
 
   const formatPrice = (price) =>
     Number(price || 0).toLocaleString('ko-KR');
@@ -199,7 +231,7 @@ export default function MyPage() {
       return;
     }
     setMessage('주문이 취소되었습니다.');
-    loadOrders();
+    loadOrders(orderPage);
   };
 
   const handleReturn = async (orderId) => {
@@ -216,7 +248,7 @@ export default function MyPage() {
       return;
     }
     setMessage('반품이 신청되었습니다.');
-    loadOrders();
+    loadOrders(orderPage);
   };
 
   const handleAddressSearch = () => {
@@ -308,13 +340,57 @@ export default function MyPage() {
             )}
 
             {activeTab === 'orders' && (
-              <OrderHistory
-                orders={orders}
-                formatDate={formatDate}
-                formatPrice={formatPrice}
-                onCancel={handleCancel}
-                onReturn={handleReturn}
-              />
+              <>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {[
+                    ['ALL', '전체'],
+                    ['ORDERED', '결제완료'],
+                    ['PREPARING', '배송준비중'],
+                    ['SHIPPING', '배송중'],
+                    ['DELIVERED', '배송완료'],
+                    ['CANCELLED', '취소'],
+                    ['RETURN_REQUESTED', '반품신청'],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setOrderStatusFilter(value)}
+                      className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${
+                        orderStatusFilter === value
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <OrderHistory
+                  orders={orders}
+                  statusFilter={orderStatusFilter}
+                  formatDate={formatDate}
+                  formatPrice={formatPrice}
+                  onCancel={handleCancel}
+                  onReturn={handleReturn}
+                />
+                {!pageLoading && (
+                  <Pagination
+                    currentPage={orderPage}
+                    totalPages={orderTotalPages}
+                    handlePreviousPage={() =>
+                      setOrderPage((prev) => Math.max(0, prev - 1))
+                    }
+                    handleNextPage={() =>
+                      setOrderPage((prev) =>
+                        orderTotalPages > 0
+                          ? Math.min(orderTotalPages - 1, prev + 1)
+                          : prev
+                      )
+                    }
+                    setCurrentPage={setOrderPage}
+                  />
+                )}
+              </>
             )}
 
             {activeTab === 'profile' && (

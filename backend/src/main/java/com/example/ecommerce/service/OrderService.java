@@ -11,12 +11,14 @@ import com.example.ecommerce.repository.OrdersRepository;
 import com.example.ecommerce.repository.PaymentRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import com.example.ecommerce.repository.UserRepository;
+import com.example.ecommerce.global.PagingSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -185,7 +187,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Orders lookupGuestOrder(Map<String, String> params) {
+    public List<Map<String, Object>> getMyOrderViews(String username) {
+        return getMyOrders(username).stream().map(this::toOrderView).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> lookupGuestOrder(Map<String, String> params) {
         String ordererName = params == null ? null : params.get("ordererName");
         String phoneNumber = params == null ? null : params.get("phoneNumber");
 
@@ -201,26 +208,26 @@ public class OrderService {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("일치하는 비회원 주문을 찾을 수 없습니다."));
 
-        return ordersRepository.findWithItemsById(matched.getId()).orElse(matched);
+        return toOrderView(ordersRepository.findWithItemsById(matched.getId()).orElse(matched));
     }
 
-    public Orders cancelMyOrder(String username, Long orderId) {
+    public Map<String, Object> cancelMyOrder(String username, Long orderId) {
         Orders order = getOwnedOrder(username, orderId);
         if (!OrderLifecycle.canUserCancel(order.getStatus())) {
             throw new IllegalStateException("결제 직후 상태에서만 즉시 취소할 수 있습니다.");
         }
         refundAndRestore(order, "고객 즉시 주문취소");
         order.setStatus(OrderStatus.CANCELLED);
-        return ordersRepository.save(order);
+        return toOrderView(ordersRepository.save(order));
     }
 
-    public Orders requestReturn(String username, Long orderId) {
+    public Map<String, Object> requestReturn(String username, Long orderId) {
         Orders order = getOwnedOrder(username, orderId);
         if (!OrderLifecycle.canRequestReturn(order.getStatus())) {
             throw new IllegalStateException("배송완료 주문만 반품 신청할 수 있습니다.");
         }
         order.setStatus(OrderStatus.RETURN_REQUESTED);
-        return ordersRepository.save(order);
+        return toOrderView(ordersRepository.save(order));
     }
 
     @Transactional(readOnly = true)
@@ -230,24 +237,87 @@ public class OrderService {
         return orders;
     }
 
-    public Orders updateAdminOrderStatus(Long orderId, Map<String, String> payload) {
+    @Transactional(readOnly = true)
+    public Object searchAdminOrders(
+            Integer page,
+            Integer size,
+            String keyword,
+            String dateFrom,
+            String dateTo,
+            String scope) {
+        List<Orders> filtered = getAllOrdersForAdmin().stream()
+                .filter(order -> matchesScope(order, scope))
+                .filter(order -> matchesKeyword(order, keyword))
+                .filter(order -> matchesDate(order, dateFrom, dateTo))
+                .toList();
+        List<Map<String, Object>> views = filtered.stream().map(this::toOrderView).toList();
+        if (PagingSupport.isPaged(page, size)) {
+            return PagingSupport.slice(views, page, size);
+        }
+        return views;
+    }
+
+    private boolean matchesScope(Orders order, String scope) {
+        OrderStatus status = order.getStatus();
+        if ("shipping".equalsIgnoreCase(scope) || "delivery".equalsIgnoreCase(scope)) {
+            return status == OrderStatus.SHIPPING
+                    || status == OrderStatus.DELIVERING
+                    || status == OrderStatus.DELIVERED;
+        }
+        if ("orders".equalsIgnoreCase(scope)) {
+            return status == OrderStatus.ORDERED
+                    || status == OrderStatus.PAID
+                    || status == OrderStatus.PREPARING;
+        }
+        return true;
+    }
+
+    private boolean matchesKeyword(Orders order, String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return true;
+        }
+        String q = keyword.trim().toLowerCase();
+        String hay = String.join(" ",
+                String.valueOf(order.getOrderMerchantUid() == null ? "" : order.getOrderMerchantUid()),
+                String.valueOf(order.getTrackingNumber() == null ? "" : order.getTrackingNumber()),
+                String.valueOf(order.getNonUserName() == null ? "" : order.getNonUserName()),
+                order.getStatus() == null ? "" : order.getStatus().name()
+        ).toLowerCase();
+        return hay.contains(q);
+    }
+
+    private boolean matchesDate(Orders order, String dateFrom, String dateTo) {
+        LocalDate orderDay = order.getOrderDate() == null ? null : order.getOrderDate().toLocalDate();
+        if (orderDay == null) {
+            return dateFrom == null || dateFrom.isBlank();
+        }
+        if (dateFrom != null && !dateFrom.isBlank() && orderDay.isBefore(LocalDate.parse(dateFrom))) {
+            return false;
+        }
+        if (dateTo != null && !dateTo.isBlank() && orderDay.isAfter(LocalDate.parse(dateTo))) {
+            return false;
+        }
+        return true;
+    }
+
+    public Map<String, Object> updateAdminOrderStatus(Long orderId, Map<String, String> request) {
         Orders order = ordersRepository.findWithItemsById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
 
-        String nextStatusRaw = payload == null ? null : payload.get("status");
-        String trackingNumber = payload == null ? null : payload.get("trackingNumber");
+        String nextStatusRaw = request == null ? null : request.get("status");
+        String trackingNumber = request == null ? null : request.get("trackingNumber");
 
         if (trackingNumber != null && !trackingNumber.isBlank()) {
             order.setTrackingNumber(trackingNumber.trim());
         }
 
         if (nextStatusRaw == null || nextStatusRaw.isBlank()) {
-            return ordersRepository.save(order);
+            return toOrderView(ordersRepository.save(order));
         }
 
         OrderStatus nextStatus;
         try {
-            nextStatus = OrderStatus.valueOf(nextStatusRaw);
+            nextStatus = OrderStatus.valueOf(nextStatusRaw.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("지원하지 않는 주문 상태입니다.");
         }
@@ -266,7 +336,48 @@ public class OrderService {
         }
 
         order.setStatus(nextStatus);
-        return ordersRepository.save(order);
+        return toOrderView(ordersRepository.save(order));
+    }
+
+    public Map<String, Object> toOrderView(Orders order) {
+        Map<String, Object> row = new HashMap<>();
+        if (order == null) {
+            return row;
+        }
+        row.put("id", order.getId());
+        row.put("orderMerchantUid", order.getOrderMerchantUid());
+        row.put("status", order.getStatus() == null ? null : order.getStatus().name());
+        row.put("totalAmount", order.getTotalAmount());
+        row.put("discountAmount", order.getDiscountAmount());
+        row.put("netAmount", order.getNetAmount());
+        row.put("orderDate", order.getOrderDate());
+        row.put("nonUserName", order.getNonUserName());
+        row.put("trackingNumber", order.getTrackingNumber());
+
+        List<Map<String, Object>> items = new ArrayList<>();
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                if (item == null) {
+                    continue;
+                }
+                Map<String, Object> line = new HashMap<>();
+                line.put("id", item.getId());
+                line.put("count", item.getCount());
+                line.put("orderPrice", item.getOrderPrice());
+                Product product = item.getProduct();
+                Map<String, Object> productView = new HashMap<>();
+                if (product != null) {
+                    productView.put("id", product.getId());
+                    productView.put("name", product.getName());
+                    productView.put("price", product.getPrice());
+                    productView.put("imageUrl", product.getImageUrl());
+                }
+                line.put("product", productView);
+                items.add(line);
+            }
+        }
+        row.put("orderItems", items);
+        return row;
     }
 
     private Orders getOwnedOrder(String username, Long orderId) {

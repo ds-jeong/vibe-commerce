@@ -1,13 +1,14 @@
 package com.example.ecommerce.controller;
 
-import com.example.ecommerce.domain.Product;
+import com.example.ecommerce.global.PagingSupport;
+import com.example.ecommerce.service.FileStorageService;
 import com.example.ecommerce.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -15,14 +16,37 @@ import java.util.Map;
 public class AdminProductController {
 
     private final ProductService productService;
+    private final FileStorageService fileStorageService;
 
-    public AdminProductController(ProductService productService) {
+    public AdminProductController(ProductService productService, FileStorageService fileStorageService) {
         this.productService = productService;
+        this.fileStorageService = fileStorageService;
     }
 
     @GetMapping
-    public ResponseEntity<List<Product>> list() {
-        return ResponseEntity.ok(productService.getAllProducts());
+    public ResponseEntity<?> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String keyword) {
+        if (PagingSupport.isPaged(page, size)) {
+            return ResponseEntity.ok(productService.getProducts(page, size, keyword));
+        }
+        Object products = productService.getProducts(null, null, keyword);
+        return ResponseEntity.ok(products);
+    }
+
+    @PostMapping("/upload")
+    public ResponseEntity<?> upload(@RequestParam("file") MultipartFile file) {
+        try {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "SUCCESS");
+            response.put("imageUrl", fileStorageService.store(file));
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return fail(e.getMessage());
+        } catch (IllegalStateException e) {
+            return fail(e.getMessage());
+        }
     }
 
     @PostMapping

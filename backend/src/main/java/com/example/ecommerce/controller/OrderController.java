@@ -1,6 +1,7 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.domain.Orders;
+import com.example.ecommerce.global.PagingSupport;
 import com.example.ecommerce.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -58,9 +59,15 @@ public class OrderController {
     }
 
     @GetMapping("/api/orders/my")
-    public ResponseEntity<?> getMyOrders(@AuthenticationPrincipal String username) {
+    public ResponseEntity<?> getMyOrders(
+            @AuthenticationPrincipal String username,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
         try {
-            List<Orders> orders = orderService.getMyOrders(username);
+            List<Map<String, Object>> orders = orderService.getMyOrderViews(username);
+            if (PagingSupport.isPaged(page, size)) {
+                return ResponseEntity.ok(PagingSupport.slice(orders, page, size));
+            }
             return ResponseEntity.ok(orders);
         } catch (IllegalArgumentException e) {
             Map<String, Object> response = new HashMap<>();

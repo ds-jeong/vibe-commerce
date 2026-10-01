@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ORDER_STATUS_LABEL,
   canRequestReturn,
   canUserCancel,
   isPreparingOrLater,
-  productImageSrc,
 } from '../../utils/validation';
+import { trackingUrl } from '../../utils/media';
+import OrderLineItems from '../order/OrderLineItems';
 
 export default function OrderHistory({
   orders,
@@ -13,21 +14,34 @@ export default function OrderHistory({
   formatPrice,
   onCancel,
   onReturn,
+  statusFilter,
 }) {
-  const rows = Array.isArray(orders) ? orders : [];
+  const rows = useMemo(() => {
+    const allRows = Array.isArray(orders) ? orders : [];
+    if (!statusFilter || statusFilter === 'ALL') {
+      return allRows;
+    }
+    return allRows.filter((order) => (order?.status || 'ORDERED') === statusFilter);
+  }, [orders, statusFilter]);
+
+  const openTracking = (order) => {
+    const href = trackingUrl(order?.trackingNumber);
+    if (!href) {
+      alert('등록된 운송장 번호가 없습니다.');
+      return;
+    }
+    window.open(href, '_blank', 'noopener,noreferrer');
+  };
 
   return (
     <div className="space-y-4">
       {rows.length === 0 ? (
-        <p className="py-16 text-center text-sm text-gray-400">
-          주문 내역이 없습니다.
-        </p>
+        <p className="py-16 text-center text-sm text-gray-400">주문 내역이 없습니다.</p>
       ) : (
         rows.map((order) => {
           const status = order?.status || 'ORDERED';
-          const items = Array.isArray(order?.orderItems)
-            ? order.orderItems
-            : [];
+          const items = Array.isArray(order?.orderItems) ? order.orderItems : [];
+          const canTrack = status === 'SHIPPING' || status === 'DELIVERED' || status === 'DELIVERING';
           return (
             <div
               key={order?.id || order?.orderMerchantUid}
@@ -35,12 +49,8 @@ export default function OrderHistory({
             >
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs text-gray-400">
-                    {formatDate(order?.orderDate)}
-                  </p>
-                  <p className="font-bold text-gray-800">
-                    {order?.orderMerchantUid}
-                  </p>
+                  <p className="text-xs text-gray-400">{formatDate(order?.orderDate)}</p>
+                  <p className="font-bold text-gray-800">{order?.orderMerchantUid}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-blue-600">
@@ -49,46 +59,21 @@ export default function OrderHistory({
                   <p className="text-sm font-extrabold text-gray-800">
                     {formatPrice(order?.netAmount)}원
                   </p>
-                  {order?.trackingNumber ? (
-                    <p className="mt-1 text-[11px] text-gray-400">
-                      운송장 {order.trackingNumber}
-                    </p>
-                  ) : null}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {items.length === 0 ? (
-                  <p className="text-xs text-gray-400">상품 정보 없음</p>
-                ) : (
-                  items.map((item, index) => (
-                    <div
-                      key={item?.id || index}
-                      className="flex items-center gap-3"
-                    >
-                      <img
-                        src={productImageSrc(item?.product)}
-                        alt={item?.product?.name || '상품'}
-                        className="h-14 w-14 rounded-lg object-cover bg-gray-100"
-                        onError={(e) => {
-                          e.currentTarget.src =
-                            '/images/default-product.svg';
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-bold text-gray-800">
-                          {item?.product?.name || '상품'}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {item?.count || 0}개
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <OrderLineItems items={items} formatPrice={formatPrice} />
 
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
+                {canTrack ? (
+                  <button
+                    type="button"
+                    onClick={() => openTracking(order)}
+                    className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-bold text-blue-600"
+                  >
+                    📦 배송조회
+                  </button>
+                ) : null}
                 {canUserCancel(status) ? (
                   <button
                     type="button"
@@ -98,7 +83,7 @@ export default function OrderHistory({
                     즉시 주문취소
                   </button>
                 ) : null}
-                {isPreparingOrLater(status) && !canRequestReturn(status) ? (
+                {isPreparingOrLater(status) && !canRequestReturn(status) && !canTrack ? (
                   <button
                     type="button"
                     disabled
