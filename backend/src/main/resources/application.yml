@@ -1,11 +1,13 @@
 spring:
   application:
     name: vibe-commerce
+
   datasource:
     url: jdbc:postgresql://localhost:5432/ecommerce
     username: myuser
     password: mypassword
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,9 +17,20 @@ spring:
         format_sql: true
         default_batch_fetch_size: 100
     open-in-view: false
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
 server:
   port: 8080
+
 portone:
   api-secret: ${PORTONE_API_SECRET:}
+
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/app/uploads}
+
+app:
+  frontend-origin: ${FRONTEND_ORIGIN:*}
