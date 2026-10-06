@@ -3,6 +3,7 @@ package com.example.ecommerce.controller;
 import com.example.ecommerce.global.PagingSupport;
 import com.example.ecommerce.service.FileStorageService;
 import com.example.ecommerce.service.ProductService;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -77,6 +78,8 @@ public class AdminProductController {
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             return fail(e.getMessage());
+        } catch (DataIntegrityViolationException e) {
+            return fail("주문 내역이 있는 상품은 삭제할 수 없습니다.");
         }
     }
 

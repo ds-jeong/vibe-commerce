@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { startUserSession } from '../utils/session';
 import { trackingUrl } from '../utils/media';
 import { canTrackOrder, ORDER_STATUS_LABEL } from '../utils/validation';
 import OrderLineItems from '../components/order/OrderLineItems';
@@ -31,7 +32,7 @@ export default function UserLoginPage() {
       })
       .then((resData) => {
         if (resData.status === 'SUCCESS' && resData.accessToken) {
-          localStorage.setItem('userToken', resData.accessToken);
+          startUserSession(resData.accessToken);
 
           const guestCart = localStorage.getItem('guestCart');
           if (guestCart) {
@@ -119,6 +120,9 @@ export default function UserLoginPage() {
 
         {activeTab === 'member' ? (
         <form onSubmit={handleUserLogin} className="space-y-4">
+          <p className="text-sm font-semibold text-red-500">
+            테스트 계정 ID: test / PW: aa123456@@
+          </p>
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1">회원 ID (userKey)</label>
             <input 

@@ -45,6 +45,15 @@ export default function ResponsiveHeader({
         </form>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/admin/login';
+            }}
+            className="rounded-md border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-black"
+          >
+            관리자
+          </button>
           {userToken ? (
             <>
               <button

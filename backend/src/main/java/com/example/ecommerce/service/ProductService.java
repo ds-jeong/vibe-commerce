@@ -1,6 +1,8 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.domain.Product;
+import com.example.ecommerce.repository.CartItemRepository;
+import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,10 +18,18 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final FileStorageService fileStorageService;
+    private final OrderItemRepository orderItemRepository;
+    private final CartItemRepository cartItemRepository;
 
-    public ProductService(ProductRepository productRepository, FileStorageService fileStorageService) {
+    public ProductService(
+            ProductRepository productRepository,
+            FileStorageService fileStorageService,
+            OrderItemRepository orderItemRepository,
+            CartItemRepository cartItemRepository) {
         this.productRepository = productRepository;
         this.fileStorageService = fileStorageService;
+        this.orderItemRepository = orderItemRepository;
+        this.cartItemRepository = cartItemRepository;
     }
 
     @Transactional(readOnly = true)
@@ -56,9 +66,14 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public void deleteProduct(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        if (orderItemRepository.existsByProduct_Id(id)) {
+            throw new IllegalArgumentException("주문 내역이 있는 상품은 삭제할 수 없습니다.");
+        }
+        cartItemRepository.deleteByProductId(id);
         fileStorageService.deleteIfStored(product.getImageUrl());
         productRepository.delete(product);
     }

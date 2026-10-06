@@ -38,6 +38,15 @@ export default function AdminDashboardPage() {
   }, [grain]);
 
   useEffect(() => {
+    if (!localStorage.getItem('adminToken')) {
+      window.location.replace('/admin/login');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!localStorage.getItem('adminToken')) {
+      return;
+    }
     if (tab === 'dashboard') {
       loadDashboard();
     }
@@ -75,8 +84,24 @@ export default function AdminDashboardPage() {
     [liveStats]
   );
 
-  const handleDownloadExcel = useCallback(() => {
-    window.location.href = '/api/admin/download-excel';
+  const handleDownloadExcel = useCallback(async () => {
+    const res = await fetch('/api/admin/download-excel', { headers: adminHeaders() });
+    if (adminAuthFail(res)) {
+      return;
+    }
+    if (!res.ok) {
+      alert('정산 내역을 내려받지 못했습니다.');
+      return;
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `settlement_report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }, []);
 
   const tabs = [
@@ -96,12 +121,23 @@ export default function AdminDashboardPage() {
           </h1>
           <div className="mt-1 text-sm font-medium text-slate-400">매출·주문 운영 콘솔</div>
         </div>
-        <button
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = '/';
+            }}
+            className="rounded-md border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50"
+          >
+            쇼핑몰
+          </button>
+          <button
           onClick={handleDownloadExcel}
           className="flex items-center gap-2 rounded-md bg-[#0A192F] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
         >
           정산 내역 다운로드
         </button>
+        </div>
       </div>
 
       <div className="mb-6 flex flex-wrap gap-2">
