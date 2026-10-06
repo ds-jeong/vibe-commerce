@@ -15,15 +15,16 @@ ENV VITE_PORTONE_CHANNEL_KEY=$VITE_PORTONE_CHANNEL_KEY
 RUN npm run build
 
 FROM nginx:1.27-alpine
+RUN apk add --no-cache gettext
+
 COPY nginx/default.conf.template /opt/nginx/default.conf.template
-COPY docker-entrypoint.sh /docker-entrypoint.d/99-backend-proxy.sh
+COPY docker-entrypoint.sh /start-nginx.sh
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-RUN chmod +x /docker-entrypoint.d/99-backend-proxy.sh
+RUN sed -i 's/\r$//' /start-nginx.sh && chmod +x /start-nginx.sh
 
 ENV BACKEND_URL=
-ENV PORT=80
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+ENTRYPOINT ["/start-nginx.sh"]
