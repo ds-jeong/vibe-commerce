@@ -5,7 +5,7 @@
 
 </aside>
 
-접속 url(render 프리티어 정책으로 1~2정도 로딩) : https://vibe-commerce-frontend-ed8h.onrender.com/ 
+접속 url(render 프리티어 정책으로 1~2분정도 로딩) : https://vibe-commerce-frontend-ed8h.onrender.com/ 
 
 ## 프로젝트 개요
 
