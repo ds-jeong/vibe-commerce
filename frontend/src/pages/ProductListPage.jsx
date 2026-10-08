@@ -22,6 +22,11 @@ export default function ProductListPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#0A192F]">
+      <div className="bg-red-50 px-4 py-3 text-center">
+        <p className="text-sm font-bold text-red-600 sm:text-base">
+          최초 접속 시 서버가 깨어나는 데 1~2분이 걸릴 수 있습니다. 잠시만 기다려 주세요.
+        </p>
+      </div>
       <ResponsiveHeader {...p} />
 
       <main className="mx-auto max-w-7xl px-4 py-10">
