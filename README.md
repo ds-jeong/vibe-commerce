@@ -2,8 +2,10 @@
 
 <aside>
 💡AI를 활용한 바이브코딩 방식으로 이커머스 서비스를 설계하고 구현한 전체 개발 과정 기록입니다. 각 주제는 화살표를 클릭해 펼쳐볼 수 있습니다.
-접속 url(render 프리티어 정책으로 1~2정도 로딩) : https://vibe-commerce-frontend-ed8h.onrender.com/
+
 </aside>
+
+접속 url(render 프리티어 정책으로 1~2정도 로딩) : https://vibe-commerce-frontend-ed8h.onrender.com/ 
 
 ## 프로젝트 개요
 
