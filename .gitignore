@@ -1,0 +1,6 @@
+# Gradle
+backend/.gradle/
+backend/build/
+
+# Node.js
+frontend/node_modules/

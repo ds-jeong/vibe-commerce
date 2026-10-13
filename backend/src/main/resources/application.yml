@@ -32,5 +32,10 @@ portone:
 file:
   upload-dir: ${FILE_UPLOAD_DIR:/app/uploads}
 
+supabase:
+  url: ${SUPABASE_URL:}
+  storage-bucket: ${SUPABASE_STORAGE_BUCKET:}
+  service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:}
+
 app:
   frontend-origin: ${FRONTEND_ORIGIN:*}
