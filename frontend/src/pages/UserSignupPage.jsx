@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { isKoreanName, KOREAN_NAME_MESSAGE } from '../utils/validation';
 
 export default function UserSignupPage() {
   // ========================================
@@ -71,7 +72,6 @@ export default function UserSignupPage() {
   const zipRegex = /^\d{5}$/;
   const emailRegex =
     /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-  const nameRegex = /^[가-힣a-zA-Z\s]{2,20}$/;
 
 
   // ========================================
@@ -346,8 +346,8 @@ export default function UserSignupPage() {
     // 이름 검사
     // ----------------------------------------
 
-    if (!nameRegex.test(name.trim())) {
-      setError('이름은 한글 또는 영문 2~20자로 입력해 주세요.');
+    if (!isKoreanName(name)) {
+      setError(KOREAN_NAME_MESSAGE);
 
       return;
     }

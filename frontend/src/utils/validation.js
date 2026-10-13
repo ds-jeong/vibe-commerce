@@ -2,7 +2,12 @@ import { resolveImageUrl } from './media';
 
 export const EMAIL_REGEX =
   /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-export const NAME_REGEX = /^[가-힣a-zA-Z\s]{2,20}$/;
+export const KOREAN_NAME_MESSAGE = '이름은 한글 2~20자로 입력해 주세요.';
+export const NAME_REGEX = /^(?=.{2,20}$)[가-힣]+(?: [가-힣]+)*$/;
+
+export function isKoreanName(value) {
+  return NAME_REGEX.test(String(value ?? '').trim());
+}
 export const PHONE_REGEX = /^010\d{7,8}$/;
 export const ZIP_REGEX = /^\d{5}$/;
 export const PW_REGEX =

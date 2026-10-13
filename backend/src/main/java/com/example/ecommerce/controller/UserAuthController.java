@@ -1,6 +1,7 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.domain.User;
+import com.example.ecommerce.global.KoreanNames;
 import com.example.ecommerce.domain.Role;
 import com.example.ecommerce.repository.UserRepository;
 import com.example.ecommerce.global.JwtProvider;
@@ -83,6 +84,11 @@ public class UserAuthController {
         if (email == null || email.isBlank()
                 || !email.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
             response.put("status", "FAIL"); response.put("message", "이메일 규격 위배");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+        if (!KoreanNames.isValid(name)) {
+            response.put("status", "FAIL");
+            response.put("message", KoreanNames.MESSAGE);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
         }
 
@@ -191,9 +197,11 @@ public class UserAuthController {
                     String roadAddress = payload.get("roadAddress");
                     String detailAddress = payload.get("detailAddress");
 
-                    if (name == null || !name.trim().matches("^[가-힣a-zA-Z\\s]{2,20}$")) {
+                    String currentName = user.getName() == null ? "" : user.getName().trim();
+                    String nextName = name == null ? "" : name.trim();
+                    if (nextName.isEmpty() || (!nextName.equals(currentName) && !KoreanNames.isValid(nextName))) {
                         response.put("status", "FAIL");
-                        response.put("message", "이름은 한글 또는 영문 2~20자로 입력해주세요.");
+                        response.put("message", KoreanNames.MESSAGE);
                         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
                     }
                     if (email == null || email.isBlank()

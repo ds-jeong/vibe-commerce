@@ -11,6 +11,7 @@ import com.example.ecommerce.repository.OrdersRepository;
 import com.example.ecommerce.repository.PaymentRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import com.example.ecommerce.repository.UserRepository;
+import com.example.ecommerce.global.KoreanNames;
 import com.example.ecommerce.global.PagingSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,6 +46,14 @@ public class OrderService {
     }
 
     public Map<String, Object> createOrder(Map<String, Object> params, String username) {
+        boolean guestOrder = username == null || username.isBlank() || "anonymousUser".equals(username);
+        if (guestOrder) {
+            Object rawName = params == null ? null : params.get("ordererName");
+            if (!KoreanNames.isValid(rawName == null ? null : String.valueOf(rawName))) {
+                throw new IllegalArgumentException(KoreanNames.MESSAGE);
+            }
+        }
+
         String merchantUid = "VIBE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
         Orders order = new Orders();
