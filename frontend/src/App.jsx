@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ProductListPage from './pages/ProductListPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
@@ -7,9 +7,22 @@ import UserLoginPage from './pages/UserLoginPage';
 import UserSignupPage from './pages/UserSignupPage';
 import MyPage from './pages/MyPage';
 
+function SleepWarningGate() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const el = document.getElementById('sleep-warning');
+    if (!el) {
+      return;
+    }
+    el.style.display = pathname === '/' ? '' : 'none';
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <Router>
+      <SleepWarningGate />
       <Routes>
         <Route path="/" element={<ProductListPage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />

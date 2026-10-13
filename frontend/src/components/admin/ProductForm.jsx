@@ -9,6 +9,25 @@ const emptyForm = {
   description: '',
 };
 
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+const MIN_IMAGE_SIZE = 800;
+
+function readImageSize(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: image.naturalWidth, height: image.naturalHeight });
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('이미지를 읽을 수 없습니다.'));
+    };
+    image.src = url;
+  });
+}
+
 export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
   const [form, setForm] = useState(() => {
     const seed = initialValue || emptyForm;
@@ -37,6 +56,23 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) {
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      alert('이미지 파일은 2MB 이하여야 합니다.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const { width, height } = await readImageSize(file);
+      if (width < MIN_IMAGE_SIZE || height < MIN_IMAGE_SIZE) {
+        alert(`이미지는 ${MIN_IMAGE_SIZE}×${MIN_IMAGE_SIZE}px 이상이어야 합니다. (선택한 파일: ${width}×${height}px)`);
+        e.target.value = '';
+        return;
+      }
+    } catch (err) {
+      alert(err.message || '이미지를 확인할 수 없습니다.');
+      e.target.value = '';
       return;
     }
     const token = localStorage.getItem('adminToken');
@@ -87,17 +123,22 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
         placeholder="재고"
         className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
       />
-      <div className="flex gap-2">
-        <input
-          value={form.imageUrl}
-          onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
-          placeholder="이미지 URL 또는 업로드"
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
-        />
-        <label className="whitespace-nowrap rounded-md border border-slate-200 px-3 py-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50">
-          {uploading ? '업로드 중' : '파일'}
-          <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-        </label>
+      <div className="md:col-span-2">
+        <div className="flex gap-2">
+          <input
+            value={form.imageUrl}
+            onChange={(e) => setForm({ ...form, imageUrl: e.target.value })}
+            placeholder="이미지 URL 또는 업로드"
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+          />
+          <label className="whitespace-nowrap rounded-md border border-slate-200 px-3 py-3 text-xs font-semibold text-slate-600 shadow-sm transition hover:scale-[1.01] hover:bg-slate-50">
+            {uploading ? '업로드 중' : '파일'}
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleImageUpload} />
+          </label>
+        </div>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          권장 800×800px 이상, JPG/PNG/WebP, 최대 2MB
+        </p>
       </div>
       <textarea
         value={form.description}
