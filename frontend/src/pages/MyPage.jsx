@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import OrderHistory from '../components/mypage/OrderHistory';
 import ProfileEdit from '../components/mypage/ProfileEdit';
 import InquiryPanel from '../components/mypage/InquiryPanel';
+import LikedProducts from '../components/mypage/LikedProducts';
 import Pagination from '../components/common/Pagination';
+import { purchaseBlockMessage } from '../utils/saleStatus';
 
 export default function MyPage() {
   const token = localStorage.getItem('userToken');
@@ -31,6 +33,12 @@ export default function MyPage() {
   const [orderPage, setOrderPage] = useState(0);
   const [orderTotalPages, setOrderTotalPages] = useState(0);
   const orderPageSize = 8;
+  const [likedProducts, setLikedProducts] = useState([]);
+  const [likePage, setLikePage] = useState(0);
+  const [likeTotalPages, setLikeTotalPages] = useState(0);
+  const [likeLoading, setLikeLoading] = useState(false);
+  const [unlikeIds, setUnlikeIds] = useState([]);
+  const likePageSize = 8;
 
   useEffect(() => {
     if (!token) {
@@ -104,6 +112,28 @@ export default function MyPage() {
     }
   };
 
+  const loadLikes = async (page = likePage) => {
+    setLikeLoading(true);
+    try {
+      const res = await fetch(
+        `/api/user/likes?page=${page}&size=${likePageSize}`,
+        { headers: authHeaders }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || '좋아요한 상품을 불러오지 못했습니다.');
+      }
+      const parsed = unwrapPage(data);
+      setLikedProducts(parsed.rows);
+      setLikeTotalPages(parsed.totalPages);
+    } catch (err) {
+      setError(err.message || '좋아요한 상품을 불러오지 못했습니다.');
+      setLikedProducts([]);
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
   const loadInquiries = async () => {
     const res = await fetch('/api/inquiries', { headers: authHeaders });
     const data = await res.json().catch(() => []);
@@ -118,6 +148,13 @@ export default function MyPage() {
     loadProfile();
     loadInquiries();
   }, [token, orderPage]);
+
+  useEffect(() => {
+    if (!token || activeTab !== 'likes') {
+      return;
+    }
+    loadLikes(likePage);
+  }, [token, activeTab, likePage]);
 
   const formatPrice = (price) =>
     Number(price || 0).toLocaleString('ko-KR');
@@ -251,6 +288,65 @@ export default function MyPage() {
     loadOrders(orderPage);
   };
 
+  const handleUnlike = async (product) => {
+    if (!product?.id || unlikeIds.includes(product.id)) {
+      return;
+    }
+    setError('');
+    setMessage('');
+    setUnlikeIds((ids) => [...ids, product.id]);
+    try {
+      const res = await fetch(`/api/products/${product.id}/likes`, {
+        method: 'DELETE',
+        headers: authHeaders,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || '좋아요를 취소하지 못했습니다.');
+      }
+      const nextPage = likedProducts.length === 1 && likePage > 0 ? likePage - 1 : likePage;
+      if (nextPage !== likePage) {
+        setLikePage(nextPage);
+      } else {
+        await loadLikes(likePage);
+      }
+    } catch (err) {
+      setError(err.message || '좋아요를 취소하지 못했습니다.');
+    } finally {
+      setUnlikeIds((ids) => ids.filter((id) => id !== product.id));
+    }
+  };
+
+  const handleLikedAddToCart = async (product) => {
+    const blocked = purchaseBlockMessage(product);
+    if (blocked) {
+      setError(blocked);
+      setMessage('');
+      return;
+    }
+    setError('');
+    setMessage('');
+    try {
+      const res = await fetch('/api/cart/add', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: 1,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || '장바구니 담기에 실패했습니다.');
+      }
+      setMessage(`장바구니에 "${product.name}"을(를) 담았습니다.`);
+    } catch (err) {
+      setError(err.message || '장바구니 담기에 실패했습니다.');
+    }
+  };
+
   const handleAddressSearch = () => {
     if (!window.daum || !window.daum.Postcode) {
       setError('주소 검색 서비스를 불러오는 중입니다.');
@@ -269,6 +365,7 @@ export default function MyPage() {
 
   const tabs = [
     { id: 'orders', label: '주문 내역' },
+    { id: 'likes', label: '좋아요한 상품' },
     { id: 'profile', label: '내 정보' },
     { id: 'inquiry', label: '1:1 문의' },
   ];
@@ -302,7 +399,7 @@ export default function MyPage() {
           마이페이지
         </h2>
         <p className="mt-2 text-sm text-gray-500">
-          주문내역, 회원정보, 1:1 문의를 한곳에서 관리하세요.
+          주문내역, 좋아요한 상품, 회원정보, 1:1 문의를 한곳에서 관리하세요.
         </p>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -391,6 +488,25 @@ export default function MyPage() {
                   />
                 )}
               </>
+            )}
+
+            {activeTab === 'likes' && (
+              <LikedProducts
+                products={likedProducts}
+                loading={likeLoading}
+                formatPrice={formatPrice}
+                formatDate={formatDate}
+                pendingIds={unlikeIds}
+                onUnlike={handleUnlike}
+                onAddToCart={handleLikedAddToCart}
+                currentPage={likePage}
+                totalPages={likeTotalPages}
+                onPreviousPage={() => setLikePage((prev) => Math.max(0, prev - 1))}
+                onNextPage={() => setLikePage((prev) => (
+                  likeTotalPages > 0 ? Math.min(likeTotalPages - 1, prev + 1) : prev
+                ))}
+                setCurrentPage={setLikePage}
+              />
             )}
 
             {activeTab === 'profile' && (

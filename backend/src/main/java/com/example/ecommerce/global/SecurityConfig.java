@@ -2,6 +2,7 @@ package com.example.ecommerce.global;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -31,6 +32,8 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST, "/api/products/*/likes").hasRole("USER")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/*/likes").hasRole("USER")
                 // 🔓 1. 비회원/회원 공통 전면 개방 채널 (상품 조회, 로그인, 비회원 주문 및 결제 검증 채널 전면 개방)
                 .requestMatchers(
                     "/api/products/**",
@@ -47,7 +50,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 
                 // 🔐 3. 일반 회원 전용 채널 (회원 전용 장바구니 및 회원 주문 내역 조회 권한 분리)
-                .requestMatchers("/api/cart/**", "/api/orders/my", "/api/orders/*/cancel", "/api/orders/*/return-request", "/api/user/profile", "/api/user/profile/**", "/api/inquiries", "/api/inquiries/**").hasRole("USER")
+                .requestMatchers("/api/cart/**", "/api/orders/my", "/api/orders/*/cancel", "/api/orders/*/return-request", "/api/user/profile", "/api/user/profile/**", "/api/user/likes", "/api/inquiries", "/api/inquiries/**").hasRole("USER")
                 
                 .anyRequest().permitAll()
             )

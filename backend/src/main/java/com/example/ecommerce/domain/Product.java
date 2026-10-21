@@ -49,4 +49,12 @@ public class Product {
     @Transient
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<ProductImage> detailImages;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long likeCount;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean likedByCurrentUser;
 }

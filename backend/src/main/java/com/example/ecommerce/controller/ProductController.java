@@ -1,8 +1,10 @@
 package com.example.ecommerce.controller;
 
+import com.example.ecommerce.service.ProductLikeService;
 import com.example.ecommerce.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -13,9 +15,11 @@ import java.util.Map;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductLikeService productLikeService;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, ProductLikeService productLikeService) {
         this.productService = productService;
+        this.productLikeService = productLikeService;
     }
 
     /**
@@ -27,9 +31,12 @@ public class ProductController {
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(required = false) Long categoryId) {
+            @RequestParam(required = false) Long categoryId,
+            @AuthenticationPrincipal String username) {
         try {
-            return ResponseEntity.ok(productService.getProducts(page, size, keyword, categoryId));
+            Object products = productService.getProducts(page, size, keyword, categoryId);
+            productLikeService.attachToProducts(products, username);
+            return ResponseEntity.ok(products);
         } catch (IllegalArgumentException e) {
             Map<String, Object> response = new HashMap<>();
             response.put("status", "FAIL");

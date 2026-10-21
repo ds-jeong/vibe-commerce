@@ -58,10 +58,39 @@ public class AnalyticsService {
         int safePage = page == null || page < 0 ? 0 : page;
         int safeSize = size == null || size <= 0 ? 10 : Math.min(size, 100);
         String sortKey = sort == null ? "" : sort.trim().toLowerCase(Locale.ROOT);
-        String orderBy = "quantity".equals(sortKey)
+        boolean byLikes = "likes".equals(sortKey) || "likecount".equals(sortKey);
+        boolean byQuantity = "quantity".equals(sortKey);
+        boolean byNet = "netrevenue".equals(sortKey) || "net".equals(sortKey);
+        String normalized = byLikes ? "likes" : byQuantity ? "quantity" : byNet ? "netRevenue" : "amount";
+        String likeCountSql = "COALESCE((SELECT COUNT(*) FROM product_likes pl WHERE pl.product_id = p.id), 0)";
+
+        if (byLikes) {
+            Long total = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM products", Long.class);
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT p.id as id, p.name as name, p.image_url as \"imageUrl\", "
+                            + "COALESCE(sales.quantity, 0) as quantity, "
+                            + "COALESCE(sales.amount, 0) as amount, "
+                            + likeCountSql + " as \"likeCount\" "
+                            + "FROM products p "
+                            + "LEFT JOIN ("
+                            + "SELECT oi.product_id, COALESCE(SUM(oi.count), 0) as quantity, "
+                            + "COALESCE(SUM(oi.order_price * oi.count), 0) as amount "
+                            + "FROM order_items oi JOIN orders o ON oi.order_id = o.id "
+                            + "WHERE o.status IS NULL OR o.status NOT IN (" + EXCLUDED_STATUSES + ") "
+                            + "GROUP BY oi.product_id"
+                            + ") sales ON sales.product_id = p.id "
+                            + "ORDER BY \"likeCount\" DESC, amount DESC, p.id DESC "
+                            + "LIMIT ? OFFSET ?",
+                    safeSize,
+                    safePage * safeSize
+            );
+            return productSalesPage(rows, total, safePage, safeSize, normalized);
+        }
+
+        String orderBy = byQuantity
                 ? "quantity DESC, amount DESC"
-                : "netRevenue".equals(sortKey) || "net".equals(sortKey)
-                ? "netRevenue DESC, amount DESC"
+                : byNet
+                ? "\"netRevenue\" DESC, amount DESC"
                 : "amount DESC, quantity DESC";
 
         String fromSql = " FROM order_items oi "
@@ -73,12 +102,12 @@ public class AnalyticsService {
                 "SELECT COUNT(*) FROM (SELECT p.id " + fromSql + " GROUP BY p.id) grouped",
                 Long.class
         );
-        int totalCount = total == null ? 0 : total.intValue();
 
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "SELECT p.id as id, p.name as name, p.image_url as imageUrl, "
+                "SELECT p.id as id, p.name as name, p.image_url as \"imageUrl\", "
                         + "COALESCE(SUM(oi.count), 0) as quantity, "
                         + "COALESCE(SUM(oi.order_price * oi.count), 0) as amount, "
+                        + likeCountSql + " as \"likeCount\", "
                         + "COALESCE(SUM(CASE "
                         + "WHEN (COALESCE(o.total_amount, o.net_amount, 0) - COALESCE(o.delivery_fee, 0)) <= 0 THEN 0 "
                         + "ELSE (oi.order_price * oi.count) "
@@ -87,7 +116,7 @@ public class AnalyticsService {
                         + "COALESCE(o.total_amount, o.net_amount, 0) "
                         + "- ROUND(COALESCE(o.total_amount, o.net_amount, 0) * 0.033, 2) "
                         + "- ROUND((COALESCE(o.total_amount, o.net_amount, 0) - COALESCE(o.delivery_fee, 0)) * 0.10, 2)) "
-                        + "END), 0) as netRevenue "
+                        + "END), 0) as \"netRevenue\" "
                         + fromSql
                         + "GROUP BY p.id, p.name, p.image_url "
                         + "ORDER BY " + orderBy
@@ -96,13 +125,23 @@ public class AnalyticsService {
                 safePage * safeSize
         );
 
+        return productSalesPage(rows, total, safePage, safeSize, normalized);
+    }
+
+    private Map<String, Object> productSalesPage(
+            List<Map<String, Object>> rows,
+            Long total,
+            int page,
+            int size,
+            String sort) {
+        int totalCount = total == null ? 0 : total.intValue();
         Map<String, Object> body = new HashMap<>();
         body.put("content", rows);
         body.put("totalElements", totalCount);
-        body.put("totalPages", totalCount == 0 ? 0 : (int) Math.ceil(totalCount / (double) safeSize));
-        body.put("number", safePage);
-        body.put("size", safeSize);
-        body.put("sort", "quantity".equals(sortKey) ? "quantity" : ("netRevenue".equals(sortKey) || "net".equals(sortKey) ? "netRevenue" : "amount"));
+        body.put("totalPages", totalCount == 0 ? 0 : (int) Math.ceil(totalCount / (double) size));
+        body.put("number", page);
+        body.put("size", size);
+        body.put("sort", sort);
         return body;
     }
 

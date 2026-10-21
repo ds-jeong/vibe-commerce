@@ -52,8 +52,20 @@ export default function AdminProductSalesPanel() {
           >
             매출순
           </button>
+          <button
+            type="button"
+            onClick={() => { setSort('likes'); setCurrentPage(0); }}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+              sort === 'likes' ? 'bg-[#0A192F] text-white' : 'border bg-white text-slate-600'
+            }`}
+          >
+            좋아요순
+          </button>
         </div>
       </div>
+      {sort === 'likes' ? (
+        <p className="mb-3 text-xs text-gray-400">판매 이력이 없는 상품도 좋아요가 많은 순으로 함께 봅니다.</p>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
           <thead className="border-b text-xs uppercase tracking-wide text-gray-400">
@@ -62,12 +74,15 @@ export default function AdminProductSalesPanel() {
               <th className="px-2 py-2 font-bold">상품명</th>
               <th className="px-2 py-2 font-bold">총 판매량</th>
               <th className="px-2 py-2 font-bold">누적 매출액</th>
+              <th className="px-2 py-2 font-bold">좋아요</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-2 py-8 text-center text-gray-400">판매 데이터가 없습니다.</td>
+                <td colSpan={5} className="px-2 py-8 text-center text-gray-400">
+                  {sort === 'likes' ? '등록된 상품이 없습니다.' : '판매 데이터가 없습니다.'}
+                </td>
               </tr>
             ) : (
               rows.map((row) => (
@@ -83,6 +98,9 @@ export default function AdminProductSalesPanel() {
                   <td className="px-2 py-2">{Number(row.quantity || 0).toLocaleString()}개</td>
                   <td className="px-2 py-2 font-semibold text-slate-800">
                     {Number(row.amount || 0).toLocaleString()}원
+                  </td>
+                  <td className={`px-2 py-2 ${sort === 'likes' ? 'font-semibold text-rose-600' : 'text-slate-700'}`}>
+                    {Number(row.likeCount || 0).toLocaleString()}
                   </td>
                 </tr>
               ))

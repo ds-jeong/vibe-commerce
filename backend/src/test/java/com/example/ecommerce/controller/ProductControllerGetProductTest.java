@@ -2,6 +2,7 @@ package com.example.ecommerce.controller;
 
 import com.example.ecommerce.domain.Product;
 import com.example.ecommerce.domain.ProductImage;
+import com.example.ecommerce.service.ProductLikeService;
 import com.example.ecommerce.service.ProductService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,12 +25,14 @@ class ProductControllerGetProductTest {
 
     @Mock
     private ProductService productService;
+    @Mock
+    private ProductLikeService productLikeService;
 
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ProductController(productService, productLikeService)).build();
     }
 
     @Test

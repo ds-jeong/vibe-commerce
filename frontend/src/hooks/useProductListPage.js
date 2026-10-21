@@ -28,6 +28,8 @@ export default function useProductListPage() {
   // =========================================================
 
   const [products, setProducts] = useState([]);
+  const [likingProductIds, setLikingProductIds] = useState([]);
+  const likingProductIdsRef = useRef(new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -216,8 +218,14 @@ export default function useProductListPage() {
         ? `&categoryId=${encodeURIComponent(categoryId)}`
         : '';
 
+      const headers = {};
+      const token = localStorage.getItem('userToken');
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
       const response = await fetch(
-        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}${categoryParam}`
+        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}${categoryParam}`,
+        { headers }
       );
 
       if (!response.ok) {
@@ -499,6 +507,44 @@ export default function useProductListPage() {
   // =========================================================
   // 장바구니 담기
   // =========================================================
+
+  const toggleProductLike = async (product) => {
+    const token = localStorage.getItem('userToken');
+    if (!token || product?.id == null) {
+      return;
+    }
+    if (likingProductIdsRef.current.has(product.id)) {
+      return;
+    }
+    likingProductIdsRef.current.add(product.id);
+    setLikingProductIds(Array.from(likingProductIdsRef.current));
+    try {
+      const response = await fetch(`/api/products/${product.id}/likes`, {
+        method: product.likedByCurrentUser ? 'DELETE' : 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.message || '좋아요를 처리하지 못했습니다.');
+      }
+      setProducts((current) => current.map((item) => (
+        item.id === product.id
+          ? {
+              ...item,
+              likeCount: data.likeCount,
+              likedByCurrentUser: data.likedByCurrentUser,
+            }
+          : item
+      )));
+    } catch (error) {
+      alert(error.message || '좋아요를 처리하지 못했습니다.');
+    } finally {
+      likingProductIdsRef.current.delete(product.id);
+      setLikingProductIds(Array.from(likingProductIdsRef.current));
+    }
+  };
 
   const handleAddToCart = async (product, quantity = 1) => {
     const amount = Number(quantity) > 0 ? Number(quantity) : 1;
@@ -1897,6 +1943,8 @@ export default function useProductListPage() {
     guestNameRegex,
     guestPhoneRegex,
     userToken,
+    likingProductIds,
+    toggleProductLike,
     cartItemCount,
     checkedCartItems,
     checkedCartTotalPrice,

@@ -104,6 +104,9 @@ export default function ProductListPage() {
                   formatPrice={formatPrice}
                   onAddToCart={onAddToCart}
                   onBuyNow={onBuyNow}
+                  showLikes={Boolean(p.userToken)}
+                  likePending={p.likingProductIds.includes(product.id)}
+                  onToggleLike={p.toggleProductLike}
                 />
               ))}
             </div>
