@@ -6,6 +6,7 @@ import CartModal from '../components/cart/CartModal';
 import GuestOrderModal from '../components/cart/GuestOrderModal';
 import OrderConfirmModal from '../components/order/OrderConfirmModal';
 import ProductImage from '../components/common/ProductImage';
+import ProductReviews from '../components/product/ProductReviews';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -202,6 +203,7 @@ export default function ProductDetailPage() {
                 {description || '등록된 상품 설명이 없습니다.'}
               </p>
             </section>
+            <ProductReviews productId={product.id} userToken={shop.userToken} />
           </div>
         ) : null}
       </main>

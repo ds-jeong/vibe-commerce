@@ -58,6 +58,26 @@ public class FileStorageService {
     }
 
     public String store(MultipartFile file) {
+        return store(file, "", true);
+    }
+
+    public String storeReviewImage(MultipartFile file) {
+        return store(file, "review", false);
+    }
+
+    public String requireReviewObjectUrl(String imageUrl) {
+        String prefix = publicPrefix() + "review/";
+        if (imageUrl == null || !imageUrl.startsWith(prefix)) {
+            throw new IllegalArgumentException("리뷰 이미지 주소가 올바르지 않습니다.");
+        }
+        String name = imageUrl.substring(prefix.length());
+        if (!name.matches("[A-Za-z0-9._-]+")) {
+            throw new IllegalArgumentException("리뷰 이미지 주소가 올바르지 않습니다.");
+        }
+        return prefix + name;
+    }
+
+    private String store(MultipartFile file, String folder, boolean requireCatalogSize) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("업로드할 이미지 파일이 없습니다.");
         }
@@ -77,6 +97,7 @@ public class FileStorageService {
         }
 
         String filename = UUID.randomUUID().toString().replace("-", "") + extension;
+        String objectPath = folder == null || folder.isBlank() ? filename : folder + "/" + filename;
         byte[] bytes;
         try {
             bytes = file.getBytes();
@@ -87,11 +108,11 @@ public class FileStorageService {
         if (edges == null) {
             throw new IllegalArgumentException("이미지를 확인할 수 없습니다.");
         }
-        if (edges[0] < MIN_IMAGE_EDGE || edges[1] < MIN_IMAGE_EDGE) {
+        if (requireCatalogSize && (edges[0] < MIN_IMAGE_EDGE || edges[1] < MIN_IMAGE_EDGE)) {
             throw new IllegalArgumentException("이미지는 800×800px 이상이어야 합니다.");
         }
 
-        HttpRequest request = authorized(supabaseUrl + "/storage/v1/object/" + bucket + "/" + filename)
+        HttpRequest request = authorized(supabaseUrl + "/storage/v1/object/" + bucket + "/" + objectPath)
                 .header("Content-Type", contentType(file, extension))
                 .header("x-upsert", "false")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(bytes))
@@ -100,7 +121,7 @@ public class FileStorageService {
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw new IllegalStateException(storageFailureMessage(response));
         }
-        return publicPrefix() + filename;
+        return publicPrefix() + objectPath;
     }
 
     public void deleteIfStored(String imageUrl) {
@@ -176,7 +197,7 @@ public class FileStorageService {
         if (hash >= 0) {
             name = name.substring(0, hash);
         }
-        if (!name.matches("[A-Za-z0-9._-]+")) {
+        if (!name.matches("(?:review/)?[A-Za-z0-9._-]+")) {
             return null;
         }
         return name;

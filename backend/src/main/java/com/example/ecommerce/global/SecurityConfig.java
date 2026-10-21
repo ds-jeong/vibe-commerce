@@ -34,6 +34,10 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/products/*/likes").hasRole("USER")
                 .requestMatchers(HttpMethod.DELETE, "/api/products/*/likes").hasRole("USER")
+                .requestMatchers(HttpMethod.POST, "/api/products/*/reviews/images").hasRole("USER")
+                .requestMatchers(HttpMethod.POST, "/api/products/*/reviews").hasRole("USER")
+                .requestMatchers(HttpMethod.PUT, "/api/products/*/reviews/*").hasRole("USER")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/*/reviews/*").hasRole("USER")
                 // 🔓 1. 비회원/회원 공통 전면 개방 채널 (상품 조회, 로그인, 비회원 주문 및 결제 검증 채널 전면 개방)
                 .requestMatchers(
                     "/api/products/**",

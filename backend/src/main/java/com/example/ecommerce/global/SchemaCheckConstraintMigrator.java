@@ -45,6 +45,20 @@ public class SchemaCheckConstraintMigrator implements ApplicationRunner {
                 Arrays.stream(ReturnStatus.values()).map(Enum::name).toArray(String[]::new)
         );
         widenProductImageUrl();
+        ensureReviewRatingCheck();
+    }
+
+    private void ensureReviewRatingCheck() {
+        Boolean exists = jdbcTemplate.query(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                        + "WHERE table_schema = 'public' AND table_name = 'reviews')",
+                rs -> rs.next() && rs.getBoolean(1)
+        );
+        if (!Boolean.TRUE.equals(exists)) {
+            return;
+        }
+        jdbcTemplate.execute("ALTER TABLE reviews DROP CONSTRAINT IF EXISTS reviews_rating_check");
+        jdbcTemplate.execute("ALTER TABLE reviews ADD CONSTRAINT reviews_rating_check CHECK (rating BETWEEN 1 AND 5)");
     }
 
     private void widenProductImageUrl() {

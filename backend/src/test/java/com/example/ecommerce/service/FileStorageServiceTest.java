@@ -159,6 +159,53 @@ class FileStorageServiceTest {
         assertTrue(imageUrl.endsWith(".webp"));
     }
 
+    @Test
+    void reviewImageIsStoredUnderReviewFolder() throws Exception {
+        AtomicReference<String> path = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            path.set(exchange.getRequestURI().getPath());
+            byte[] body = "{\"Key\":\"ok\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream output = exchange.getResponseBody()) {
+                output.write(body);
+            }
+        });
+        server.start();
+
+        FileStorageService service = service(baseUrl(), "product-images", "service-role");
+        String imageUrl = service.storeReviewImage(jpeg(120, 80));
+
+        assertTrue(path.get().contains("/product-images/review/"));
+        assertTrue(path.get().endsWith(".jpg"));
+        assertTrue(imageUrl.contains("/public/product-images/review/"));
+        assertEquals(
+                imageUrl,
+                service.requireReviewObjectUrl(imageUrl));
+        assertThrows(IllegalArgumentException.class, () -> service.requireReviewObjectUrl(
+                baseUrl() + "/storage/v1/object/public/product-images/not-review.jpg"));
+    }
+
+    @Test
+    void deleteReviewImageTargetsTheReviewFolder() throws Exception {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> path = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            method.set(exchange.getRequestMethod());
+            path.set(exchange.getRequestURI().getPath());
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+
+        FileStorageService service = service(baseUrl(), "product-images", "service-role");
+        service.deleteIfStored(baseUrl() + "/storage/v1/object/public/product-images/review/abc.jpg");
+
+        assertEquals("DELETE", method.get());
+        assertEquals("/storage/v1/object/product-images/review/abc.jpg", path.get());
+    }
+
     private FileStorageService service(String url, String bucket, String key) throws IOException {
         uploadRoot = Files.createTempDirectory("uploads");
         return new FileStorageService(uploadRoot.toString(), url, bucket, key);
