@@ -2,6 +2,7 @@ package com.example.ecommerce.global;
 
 import com.example.ecommerce.domain.InquiryStatus;
 import com.example.ecommerce.domain.OrderStatus;
+import com.example.ecommerce.domain.ReturnStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -36,6 +37,12 @@ public class SchemaCheckConstraintMigrator implements ApplicationRunner {
                 "inquiries_status_check",
                 "status",
                 Arrays.stream(InquiryStatus.values()).map(Enum::name).toArray(String[]::new)
+        );
+        replaceCheckConstraint(
+                "return_requests",
+                "return_requests_status_check",
+                "status",
+                Arrays.stream(ReturnStatus.values()).map(Enum::name).toArray(String[]::new)
         );
     }
 

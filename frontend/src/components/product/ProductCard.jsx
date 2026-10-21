@@ -1,17 +1,14 @@
 import React, { memo } from 'react';
-import { resolveImageUrl } from '../../utils/media';
+import ProductImage from '../common/ProductImage';
 
 function ProductCard({ product, formatPrice, onAddToCart, onBuyNow }) {
   return (
     <div className="overflow-hidden rounded-md border border-slate-100 bg-white shadow-sm transition duration-300 hover:scale-[1.01] hover:shadow-md">
       <div className="flex h-52 items-center justify-center bg-slate-50">
-        <img
-          src={resolveImageUrl(product.imageUrl || product.image)}
+        <ProductImage
+          src={product.imageUrl || product.image}
           alt={product.name}
           className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = '/images/default-product.svg';
-          }}
         />
       </div>
       <div className="p-5">

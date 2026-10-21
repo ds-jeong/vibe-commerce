@@ -1,6 +1,6 @@
 import React from 'react';
 import { computeCheckoutSummary, resolveItemImage } from '../../utils/checkout';
-import { resolveImageUrl } from '../../utils/media';
+import ProductImage from '../common/ProductImage';
 
 export default function OrderConfirmModal({
   open,
@@ -37,13 +37,10 @@ export default function OrderConfirmModal({
               key={`${item.id}-${item.name}`}
               className="flex items-center gap-3 rounded-md border border-slate-100 bg-slate-50 p-3"
             >
-              <img
-                src={resolveImageUrl(resolveItemImage(item))}
+              <ProductImage
+                src={resolveItemImage(item)}
                 alt={item.name}
                 className="h-16 w-16 rounded-md object-cover"
-                onError={(e) => {
-                  e.currentTarget.src = '/images/default-product.svg';
-                }}
               />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-black">{item.name}</p>

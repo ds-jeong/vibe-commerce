@@ -6,6 +6,7 @@ import AdminLoginPage from './pages/AdminLoginPage';
 import UserLoginPage from './pages/UserLoginPage';
 import UserSignupPage from './pages/UserSignupPage';
 import MyPage from './pages/MyPage';
+import LoadingBar from './components/common/LoadingBar';
 
 function SleepWarningGate() {
   const { pathname } = useLocation();
@@ -22,6 +23,7 @@ function SleepWarningGate() {
 export default function App() {
   return (
     <Router>
+      <LoadingBar />
       <SleepWarningGate />
       <Routes>
         <Route path="/" element={<ProductListPage />} />

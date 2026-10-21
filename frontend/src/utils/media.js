@@ -1,6 +1,8 @@
+export const PLACEHOLDER_IMAGE = '/images/default-product.svg';
+
 export function resolveImageUrl(imageUrl) {
   if (!imageUrl) {
-    return '/images/default-product.svg';
+    return PLACEHOLDER_IMAGE;
   }
   if (
     imageUrl.startsWith('http') ||
@@ -10,6 +12,15 @@ export function resolveImageUrl(imageUrl) {
     return imageUrl;
   }
   return `/uploads/${imageUrl}`;
+}
+
+export function handleProductImageError(event) {
+  const image = event?.currentTarget;
+  if (!image || image.dataset.placeholder === '1') {
+    return;
+  }
+  image.dataset.placeholder = '1';
+  image.src = PLACEHOLDER_IMAGE;
 }
 
 export function trackingUrl(trackingNumber) {

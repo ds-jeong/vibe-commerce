@@ -39,6 +39,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final PortOneRefundService portOneRefundService;
     private final SettlementLedgerService settlementLedgerService;
+    private final ReturnRequestService returnRequestService;
 
     public Map<String, Object> createOrder(Map<String, Object> params) {
         return createOrder(params, null);
@@ -225,12 +226,7 @@ public class OrderService {
     }
 
     public Map<String, Object> requestReturn(String username, Long orderId) {
-        Orders order = getOwnedOrder(username, orderId);
-        if (!OrderLifecycle.canRequestReturn(order.getStatus())) {
-            throw new IllegalStateException("배송완료 주문만 반품 신청할 수 있습니다.");
-        }
-        order.setStatus(OrderStatus.RETURN_REQUESTED);
-        return toOrderView(ordersRepository.save(order));
+        return toOrderView(returnRequestService.submitMemberReturn(username, orderId));
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { resolveImageUrl } from '../../utils/media';
+import ProductImage from '../common/ProductImage';
 
 export default function CartModal(props) {
   const {
@@ -93,13 +93,10 @@ export default function CartModal(props) {
                       }}
                       className="h-4 w-4 shrink-0"
                     />
-                    <img
-                      src={resolveImageUrl(item.imageUrl || item.image)}
+                    <ProductImage
+                      src={item.imageUrl || item.image}
                       alt={item.name}
                       className="h-14 w-14 rounded-md object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = '/images/default-product.svg';
-                      }}
                     />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-black">

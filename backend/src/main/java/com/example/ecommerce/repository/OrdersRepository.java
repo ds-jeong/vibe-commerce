@@ -1,8 +1,11 @@
 package com.example.ecommerce.repository;
 
+import com.example.ecommerce.domain.OrderStatus;
 import com.example.ecommerce.domain.Orders;
 import com.example.ecommerce.domain.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +21,10 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
     @Query("select distinct o from Orders o left join fetch o.user left join fetch o.orderItems oi left join fetch oi.product where o.id = :id")
     Optional<Orders> findWithItemsById(@Param("id") Long id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Orders o where o.id = :id")
+    Optional<Orders> findByIdForUpdate(@Param("id") Long id);
+
     @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product where o.user = :user")
     List<Orders> findWithItemsByUser(@Param("user") User user);
 
@@ -25,4 +32,9 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
 
     @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product")
     List<Orders> findAllWithItems();
+
+    @Query("select distinct o from Orders o left join fetch o.orderItems oi left join fetch oi.product "
+            + "where o.status = :status "
+            + "and not exists (select 1 from ReturnRequest r where r.order = o)")
+    List<Orders> findLegacyReturnRequestedWithoutReturnRequest(@Param("status") OrderStatus status);
 }

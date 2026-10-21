@@ -4,6 +4,7 @@ import AdminProductDashboard from '../components/admin/AdminProductDashboard';
 import AdminOrderDashboard from '../components/admin/AdminOrderDashboard';
 import AdminInquiryDashboard from '../components/admin/AdminInquiryDashboard';
 import AdminAnalyticsTab from '../components/admin/AdminAnalyticsTab';
+import AdminReturnDashboard from '../components/admin/AdminReturnDashboard';
 import { ORDER_STATUS_LABEL } from '../utils/validation';
 import { adminAuthFail, adminHeaders } from '../utils/adminApi';
 
@@ -109,6 +110,7 @@ export default function AdminDashboardPage() {
     { id: 'analytics', label: '판매/문의 통계' },
     { id: 'products', label: '상품 관리' },
     { id: 'orders', label: '주문/배송' },
+    { id: 'returns', label: '반품 관리' },
     { id: 'inquiries', label: '1:1 문의' },
   ];
 
@@ -188,6 +190,7 @@ export default function AdminDashboardPage() {
       {tab === 'analytics' && <AdminAnalyticsTab />}
       {tab === 'products' && <AdminProductDashboard />}
       {tab === 'orders' && <AdminOrderDashboard />}
+      {tab === 'returns' && <AdminReturnDashboard />}
       {tab === 'inquiries' && <AdminInquiryDashboard />}
     </div>
   );

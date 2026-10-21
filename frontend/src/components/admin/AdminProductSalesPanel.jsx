@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Pagination from '../common/Pagination';
 import { adminAuthFail, adminHeaders, unwrapPage } from '../../utils/adminApi';
-import { resolveImageUrl } from '../../utils/media';
+import ProductImage from '../common/ProductImage';
 
 const PAGE_SIZE = 8;
 
@@ -73,8 +73,8 @@ export default function AdminProductSalesPanel() {
               rows.map((row) => (
                 <tr key={row.id || row.name} className="border-b border-gray-50">
                   <td className="px-2 py-2">
-                    <img
-                      src={resolveImageUrl(row.imageUrl)}
+                    <ProductImage
+                      src={row.imageUrl}
                       alt={row.name || '상품'}
                       className="h-12 w-12 rounded-lg object-cover"
                     />

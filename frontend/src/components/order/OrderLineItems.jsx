@@ -1,5 +1,5 @@
 import React from 'react';
-import { productImageSrc } from '../../utils/validation';
+import ProductImage from '../common/ProductImage';
 
 export default function OrderLineItems({ items, formatPrice }) {
   const rows = Array.isArray(items) ? items : [];
@@ -14,13 +14,10 @@ export default function OrderLineItems({ items, formatPrice }) {
         const unitPrice = item?.orderPrice ?? product?.price ?? 0;
         return (
           <div key={item?.id || index} className="flex items-center gap-3">
-            <img
-              src={productImageSrc(product)}
+            <ProductImage
+              src={product?.imageUrl || product?.image}
               alt={product?.name || '상품'}
               className="h-14 w-14 rounded-lg bg-gray-100 object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/images/default-product.svg';
-              }}
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-gray-800">
