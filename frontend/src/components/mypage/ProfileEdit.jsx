@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   EMAIL_REGEX,
-  NAME_REGEX,
+  isKoreanName,
+  KOREAN_NAME_MESSAGE,
   PHONE_REGEX,
   PW_REGEX,
   ZIP_REGEX,
@@ -23,8 +24,8 @@ export default function ProfileEdit({
 
   const validateAndSave = (e) => {
     e.preventDefault();
-    if (!NAME_REGEX.test((profile?.name || '').trim())) {
-      setLocalError('이름은 한글 또는 영문 2~20자로 입력해 주세요.');
+    if (!isKoreanName(profile?.name)) {
+      setLocalError(KOREAN_NAME_MESSAGE);
       return;
     }
     if (!EMAIL_REGEX.test((profile?.email || '').trim())) {

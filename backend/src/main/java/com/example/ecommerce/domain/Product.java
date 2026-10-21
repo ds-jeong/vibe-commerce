@@ -20,6 +20,7 @@ public class Product {
     @Column(nullable = false)
     private BigDecimal price;
     private Integer stockQuantity;
+    @Column(length = 2048)
     private String imageUrl;
     @Column(columnDefinition = "TEXT")
     private String description;

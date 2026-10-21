@@ -44,6 +44,25 @@ public class SchemaCheckConstraintMigrator implements ApplicationRunner {
                 "status",
                 Arrays.stream(ReturnStatus.values()).map(Enum::name).toArray(String[]::new)
         );
+        widenProductImageUrl();
+    }
+
+    private void widenProductImageUrl() {
+        Integer length = jdbcTemplate.query(
+                "SELECT character_maximum_length FROM information_schema.columns "
+                        + "WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'image_url'",
+                rs -> {
+                    if (!rs.next() || rs.getObject(1) == null) {
+                        return null;
+                    }
+                    return rs.getInt(1);
+                }
+        );
+        if (length == null || length >= 2048) {
+            return;
+        }
+        jdbcTemplate.execute("ALTER TABLE products ALTER COLUMN image_url TYPE varchar(2048)");
+        log.info("Widened products.image_url to varchar(2048)");
     }
 
     private void replaceCheckConstraint(String table, String constraint, String column, String[] allowed) {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { isKoreanName } from '../../utils/validation';
 
 export default function GuestOrderModal(props) {
   const {
@@ -14,7 +15,6 @@ export default function GuestOrderModal(props) {
     guestName,
     handleGuestNameChange,
     guestNameMessage,
-    guestNameRegex,
     guestPhone,
     handleGuestPhoneChange,
     guestPhoneMessage,
@@ -89,7 +89,7 @@ export default function GuestOrderModal(props) {
           {guestNameMessage && (
             <p
               className={`text-xs font-semibold ${
-                guestNameRegex.test(guestName) ? 'text-emerald-600' : 'text-red-500'
+                isKoreanName(guestName) ? 'text-emerald-600' : 'text-red-500'
               }`}
             >
               {guestNameMessage}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as PortOne from '@portone/browser-sdk/v2';
+import { isKoreanName, KOREAN_NAME_MESSAGE } from '../utils/validation';
 
 export default function useProductListPage() {
   // =========================================================
@@ -87,7 +88,7 @@ export default function useProductListPage() {
   // 정규식
   // =========================================================
 
-  const guestNameRegex = /^[가-힣a-zA-Z\s]{2,20}$/;
+  const guestNameRegex = /^(?=.{2,20}$)[가-힣]+(?: [가-힣]+)*$/;
   const guestPhoneRegex = /^010\d{7,8}$/;
   const guestZipRegex = /^\d{5}$/;
 
@@ -1038,10 +1039,8 @@ export default function useProductListPage() {
       return;
     }
 
-    if (!guestNameRegex.test(value)) {
-      setGuestNameMessage(
-        '이름은 한글 또는 영문 2~20자로 입력해주세요.'
-      );
+    if (!isKoreanName(value)) {
+      setGuestNameMessage(KOREAN_NAME_MESSAGE);
     } else {
       setGuestNameMessage(
         '✓ 올바른 이름 형식입니다.'
@@ -1253,14 +1252,8 @@ export default function useProductListPage() {
       return;
     }
 
-    if (
-      !guestNameRegex.test(
-        guestName.trim()
-      )
-    ) {
-      setGuestOrderError(
-        '이름은 한글 또는 영문 2~20자로 입력해주세요.'
-      );
+    if (!isKoreanName(guestName)) {
+      setGuestOrderError(KOREAN_NAME_MESSAGE);
 
       return;
     }
