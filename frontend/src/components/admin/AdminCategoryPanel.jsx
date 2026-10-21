@@ -204,9 +204,9 @@ export default function AdminCategoryPanel() {
         <button
           type="submit"
           disabled={saving}
-          className="rounded-md bg-[#0A192F] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+          className="shrink-0 whitespace-nowrap rounded-md bg-[#0A192F] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? '처리 중' : '카테고리 등록'}
+          {saving ? '처리 중' : '등록'}
         </button>
       </form>
 
@@ -220,7 +220,7 @@ export default function AdminCategoryPanel() {
             onClick={() => document.getElementById('category-name')?.focus()}
             className="mt-4 rounded-md bg-[#0A192F] px-4 py-2 text-sm font-semibold text-white"
           >
-            카테고리 등록
+            등록
           </button>
         </div>
       ) : (

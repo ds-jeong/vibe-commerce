@@ -13,12 +13,6 @@ export default function AdminProductDashboard() {
   const [totalPages, setTotalPages] = useState(0);
   const [products, setProducts] = useState([]);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [toast, setToast] = useState('');
-
-  const showToast = useCallback((message) => {
-    setToast(message);
-    window.setTimeout(() => setToast(''), 2200);
-  }, []);
 
   const loadProducts = useCallback(async () => {
     const params = new URLSearchParams({
@@ -52,20 +46,29 @@ export default function AdminProductDashboard() {
 
   const createProduct = useCallback(
     async (payload) => {
-      const res = await fetch('/api/admin/products', {
-        method: 'POST',
-        headers: adminHeaders(),
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.message || '상품을 등록하지 못했습니다.');
-        return;
+      try {
+        const res = await fetch('/api/admin/products', {
+          method: 'POST',
+          headers: adminHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (adminAuthFail(res)) {
+          return false;
+        }
+        if (!res.ok || data.status === 'FAIL') {
+          alert(data.message || '상품을 등록하지 못했습니다.');
+          return false;
+        }
+        alert('등록되었습니다.');
+        await loadProducts();
+        return true;
+      } catch (error) {
+        alert(error.message || '상품을 등록하지 못했습니다.');
+        return false;
       }
-      showToast('상품이 등록되었습니다.');
-      await loadProducts();
     },
-    [loadProducts, showToast]
+    [loadProducts]
   );
 
   const editProduct = useCallback(async (product) => {
@@ -83,21 +86,30 @@ export default function AdminProductDashboard() {
       if (!editingProduct?.id) {
         return;
       }
-      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
-        method: 'PUT',
-        headers: adminHeaders(),
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.message || '상품을 수정하지 못했습니다.');
-        return;
+      try {
+        const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
+          method: 'PUT',
+          headers: adminHeaders(),
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (adminAuthFail(res)) {
+          return false;
+        }
+        if (!res.ok || data.status === 'FAIL') {
+          alert(data.message || '상품을 수정하지 못했습니다.');
+          return false;
+        }
+        setEditingProduct(null);
+        alert('수정되었습니다.');
+        await loadProducts();
+        return true;
+      } catch (error) {
+        alert(error.message || '상품을 수정하지 못했습니다.');
+        return false;
       }
-      setEditingProduct(null);
-      showToast('상품이 수정되었습니다.');
-      await loadProducts();
     },
-    [editingProduct, loadProducts, showToast]
+    [editingProduct, loadProducts]
   );
 
   const deleteProduct = useCallback(
@@ -105,29 +117,30 @@ export default function AdminProductDashboard() {
       if (!window.confirm('정말 삭제하시겠습니까?')) {
         return;
       }
-      const res = await fetch(`/api/admin/products/${id}`, {
-        method: 'DELETE',
-        headers: adminHeaders(),
-      });
-      if (!res.ok) {
+      try {
+        const res = await fetch(`/api/admin/products/${id}`, {
+          method: 'DELETE',
+          headers: adminHeaders(),
+        });
         const data = await res.json().catch(() => ({}));
-        alert(data.message || '상품을 삭제하지 못했습니다.');
-        return;
+        if (adminAuthFail(res)) {
+          return;
+        }
+        if (!res.ok || data.status === 'FAIL') {
+          alert(data.message || '상품을 삭제하지 못했습니다.');
+          return;
+        }
+        alert('삭제되었습니다.');
+        await loadProducts();
+      } catch (error) {
+        alert(error.message || '상품을 삭제하지 못했습니다.');
       }
-      showToast('상품이 삭제되었습니다.');
-      await loadProducts();
     },
-    [loadProducts, showToast]
+    [loadProducts]
   );
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
-      {toast ? (
-        <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-bold text-emerald-700">
-          {toast}
-        </div>
-      ) : null}
-
       <h2 className="mb-4 text-lg font-bold">상품 등록</h2>
       <ProductForm onSubmit={createProduct} />
 

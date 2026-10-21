@@ -112,12 +112,17 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
     loadCategories();
   }, []);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (uploading || uploadingDetail || categoryState !== 'ready') {
+    if (uploading || uploadingDetail) {
+      alert('이미지 업로드가 끝난 뒤 저장해 주세요.');
       return;
     }
-    onSubmit({
+    if (categoryState !== 'ready') {
+      alert(categoryMessage || '카테고리를 불러온 뒤 저장해 주세요.');
+      return;
+    }
+    const saved = await onSubmit({
       name: form.name,
       stockQuantity: Number(form.stockQuantity || 0),
       imageUrl: form.imageUrl,
@@ -131,7 +136,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
         sortOrder: index,
       })),
     });
-    if (!initialValue) {
+    if (saved && !initialValue) {
       setForm(emptyForm);
       setDetailNotice('');
     }
@@ -147,6 +152,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
     try {
       const imageUrl = await uploadImageFile(file);
       setForm((prev) => ({ ...prev, imageUrl }));
+      alert('이미지가 등록되었습니다.');
     } catch (err) {
       alert(err.message || '이미지를 업로드하지 못했습니다.');
     } finally {
@@ -199,7 +205,11 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
     }
     const notice = lines.join('\n');
     setDetailNotice(notice);
-    if (skipped || failures.length) {
+    if (uploaded.length && !skipped && !failures.length) {
+      alert('상세 이미지가 등록되었습니다.');
+      return;
+    }
+    if (notice) {
       alert(notice);
     }
   };
