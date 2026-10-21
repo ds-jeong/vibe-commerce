@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ProductListPage from './pages/ProductListPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminLoginPage from './pages/AdminLoginPage';
 import UserLoginPage from './pages/UserLoginPage';
@@ -27,6 +28,7 @@ export default function App() {
       <SleepWarningGate />
       <Routes>
         <Route path="/" element={<ProductListPage />} />
+        <Route path="/products/:id" element={<ProductDetailPage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/login" element={<UserLoginPage />} />

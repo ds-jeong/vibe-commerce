@@ -15,6 +15,13 @@ export default function useProductListPage() {
     import.meta.env.VITE_PORTONE_CHANNEL_KEY ||
     'channel-key-6c90ad46-b43b-4b03-9b77-2e875b45d99c';
 
+  const initialKeyword = (() => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') {
+      return '';
+    }
+    return new URLSearchParams(window.location.search).get('keyword')?.trim() || '';
+  })();
+
   // =========================================================
   // 상품 목록
   // =========================================================
@@ -23,8 +30,8 @@ export default function useProductListPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [appliedKeyword, setAppliedKeyword] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState(initialKeyword);
+  const [appliedKeyword, setAppliedKeyword] = useState(initialKeyword);
 
   const pageSize = 12;
 
@@ -388,7 +395,8 @@ export default function useProductListPage() {
   // 장바구니 담기
   // =========================================================
 
-  const handleAddToCart = async (product) => {
+  const handleAddToCart = async (product, quantity = 1) => {
+    const amount = Number(quantity) > 0 ? Number(quantity) : 1;
     const token = localStorage.getItem('userToken');
 
     // =======================================================
@@ -407,7 +415,7 @@ export default function useProductListPage() {
             id: product.id,
             name: product.name,
             price: product.price,
-            quantity: 1,
+            quantity: amount,
           }),
         });
 
@@ -457,7 +465,7 @@ export default function useProductListPage() {
             ? {
                 ...item,
                 quantity:
-                  Number(item.quantity || 0) + 1,
+                  Number(item.quantity || 0) + amount,
               }
             : item
         );
@@ -470,7 +478,7 @@ export default function useProductListPage() {
           id: product.id,
           name: product.name,
           price: product.price,
-          quantity: 1,
+          quantity: amount,
           imageUrl: product.imageUrl || product.image || '',
         },
       ];
@@ -945,10 +953,11 @@ export default function useProductListPage() {
     }
   };
 
-  const handleImmediateBuy = (product) => {
+  const handleImmediateBuy = (product, quantity = 1) => {
+    const amount = Number(quantity) > 0 ? Number(quantity) : 1;
     const item = toCheckoutItem({
       ...product,
-      quantity: 1,
+      quantity: amount,
     });
 
     setSelectedProduct(product);

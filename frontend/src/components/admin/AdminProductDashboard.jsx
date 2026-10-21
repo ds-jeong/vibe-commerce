@@ -52,27 +52,47 @@ export default function AdminProductDashboard() {
 
   const createProduct = useCallback(
     async (payload) => {
-      await fetch('/api/admin/products', {
+      const res = await fetch('/api/admin/products', {
         method: 'POST',
         headers: adminHeaders(),
         body: JSON.stringify(payload),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || '상품을 등록하지 못했습니다.');
+        return;
+      }
       showToast('상품이 등록되었습니다.');
       await loadProducts();
     },
     [loadProducts, showToast]
   );
 
+  const editProduct = useCallback(async (product) => {
+    const res = await fetch(`/api/products/${product.id}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.id == null) {
+      alert(data.message || '상품 정보를 불러오지 못했습니다.');
+      return;
+    }
+    setEditingProduct(data);
+  }, []);
+
   const updateProduct = useCallback(
     async (payload) => {
       if (!editingProduct?.id) {
         return;
       }
-      await fetch(`/api/admin/products/${editingProduct.id}`, {
+      const res = await fetch(`/api/admin/products/${editingProduct.id}`, {
         method: 'PUT',
         headers: adminHeaders(),
         body: JSON.stringify(payload),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || '상품을 수정하지 못했습니다.');
+        return;
+      }
       setEditingProduct(null);
       showToast('상품이 수정되었습니다.');
       await loadProducts();
@@ -122,6 +142,7 @@ export default function AdminProductDashboard() {
               stockQuantity: editingProduct.stockQuantity || '',
               imageUrl: editingProduct.imageUrl || '',
               description: editingProduct.description || '',
+              detailImages: editingProduct.detailImages || [],
             }}
             onSubmit={updateProduct}
             submitLabel="상품 수정"
@@ -149,7 +170,7 @@ export default function AdminProductDashboard() {
           <AdminProductRow
             key={product.id}
             product={product}
-            onEdit={setEditingProduct}
+            onEdit={editProduct}
             onDelete={deleteProduct}
           />
         ))}

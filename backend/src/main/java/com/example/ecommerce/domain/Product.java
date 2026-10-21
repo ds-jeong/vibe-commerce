@@ -1,11 +1,13 @@
 package com.example.ecommerce.domain;
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "products", indexes = {@Index(name = "idx_product_created_at", columnList = "createdAt")})
@@ -25,4 +27,8 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<ProductImage> detailImages;
 }

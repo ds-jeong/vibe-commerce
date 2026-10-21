@@ -1,8 +1,10 @@
 package com.example.ecommerce.service;
 
 import com.example.ecommerce.domain.Product;
+import com.example.ecommerce.domain.ProductImage;
 import com.example.ecommerce.repository.CartItemRepository;
 import com.example.ecommerce.repository.OrderItemRepository;
+import com.example.ecommerce.repository.ProductImageRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -10,13 +12,21 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class ProductService {
 
+    private static final int MAX_DETAIL_IMAGES = 10;
+
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final FileStorageService fileStorageService;
     private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
@@ -25,11 +35,21 @@ public class ProductService {
             ProductRepository productRepository,
             FileStorageService fileStorageService,
             OrderItemRepository orderItemRepository,
-            CartItemRepository cartItemRepository) {
+            CartItemRepository cartItemRepository,
+            ProductImageRepository productImageRepository) {
         this.productRepository = productRepository;
         this.fileStorageService = fileStorageService;
         this.orderItemRepository = orderItemRepository;
         this.cartItemRepository = cartItemRepository;
+        this.productImageRepository = productImageRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public Product getProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        product.setDetailImages(loadDetailImages(id));
+        return product;
     }
 
     @Transactional(readOnly = true)
@@ -52,18 +72,26 @@ public class ProductService {
         return productRepository.findByNameContainingIgnoreCase(trimmed, sort);
     }
 
+    @Transactional
     public Product createProduct(Map<String, Object> payload) {
         Product product = new Product();
         applyProductFields(product, payload, true);
-        product.setCreatedAt(java.time.LocalDateTime.now());
-        return productRepository.save(product);
+        List<DetailImageCommand> commands = readDetailCommands(payload);
+        product.setCreatedAt(LocalDateTime.now());
+        Product saved = productRepository.save(product);
+        saved.setDetailImages(commands == null ? List.of() : applyDetailCommands(saved, commands));
+        return saved;
     }
 
+    @Transactional
     public Product updateProduct(Long id, Map<String, Object> payload) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
+        List<DetailImageCommand> commands = readDetailCommands(payload);
         applyProductFields(product, payload, false);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        saved.setDetailImages(commands == null ? loadDetailImages(saved.getId()) : applyDetailCommands(saved, commands));
+        return saved;
     }
 
     @Transactional
@@ -74,7 +102,14 @@ public class ProductService {
             throw new IllegalArgumentException("주문 내역이 있는 상품은 삭제할 수 없습니다.");
         }
         cartItemRepository.deleteByProductId(id);
+        List<ProductImage> detailImages = loadDetailImages(id);
         fileStorageService.deleteIfStored(product.getImageUrl());
+        for (ProductImage detailImage : detailImages) {
+            fileStorageService.deleteIfStored(detailImage.getImageUrl());
+        }
+        if (!detailImages.isEmpty()) {
+            productImageRepository.deleteAll(detailImages);
+        }
         productRepository.delete(product);
     }
 
@@ -108,6 +143,117 @@ public class ProductService {
         if (payload.containsKey("description")) {
             Object description = payload.get("description");
             product.setDescription(description == null ? null : String.valueOf(description));
+        }
+    }
+
+    private List<ProductImage> loadDetailImages(Long productId) {
+        List<ProductImage> images = productImageRepository.findByProduct_IdOrderBySortOrderAscIdAsc(productId);
+        return images == null ? List.of() : images;
+    }
+
+    private List<DetailImageCommand> readDetailCommands(Map<String, Object> payload) {
+        if (payload == null || !payload.containsKey("detailImages") || payload.get("detailImages") == null) {
+            return null;
+        }
+        Object raw = payload.get("detailImages");
+        if (!(raw instanceof List<?> items)) {
+            throw new IllegalArgumentException("상세 이미지 형식이 올바르지 않습니다.");
+        }
+        if (items.size() > MAX_DETAIL_IMAGES) {
+            throw new IllegalArgumentException("상세 이미지는 최대 10장까지 등록할 수 있습니다.");
+        }
+        List<DetailImageCommand> commands = new ArrayList<>();
+        Set<Long> ids = new HashSet<>();
+        for (Object item : items) {
+            DetailImageCommand command = parseDetailCommand(item);
+            if (command.id != null && !ids.add(command.id)) {
+                throw new IllegalArgumentException("상세 이미지가 중복되었습니다.");
+            }
+            commands.add(command);
+        }
+        return commands;
+    }
+
+    private DetailImageCommand parseDetailCommand(Object item) {
+        if (!(item instanceof Map<?, ?> values)) {
+            throw new IllegalArgumentException("상세 이미지 형식이 올바르지 않습니다.");
+        }
+        Object rawUrl = values.get("imageUrl");
+        String imageUrl = rawUrl == null ? "" : String.valueOf(rawUrl).trim();
+        if (imageUrl.isBlank()) {
+            throw new IllegalArgumentException("상세 이미지 주소가 없습니다.");
+        }
+        if (imageUrl.length() > 2048) {
+            throw new IllegalArgumentException("상세 이미지 주소가 너무 깁니다.");
+        }
+        return new DetailImageCommand(longValue(values.get("id")), imageUrl);
+    }
+
+    private Long longValue(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return Long.valueOf(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("상세 이미지 번호가 올바르지 않습니다.");
+        }
+    }
+
+    private List<ProductImage> applyDetailCommands(Product product, List<DetailImageCommand> commands) {
+        List<ProductImage> existing = loadDetailImages(product.getId());
+        Map<Long, ProductImage> byId = new HashMap<>();
+        for (ProductImage image : existing) {
+            if (image.getId() != null) {
+                byId.put(image.getId(), image);
+            }
+        }
+        List<ProductImage> ordered = new ArrayList<>();
+        Set<Long> retained = new HashSet<>();
+        for (DetailImageCommand command : commands) {
+            if (command.id != null && !byId.containsKey(command.id)) {
+                throw new IllegalArgumentException("해당 상품의 상세 이미지가 아닙니다.");
+            }
+        }
+        for (int index = 0; index < commands.size(); index++) {
+            DetailImageCommand command = commands.get(index);
+            if (command.id != null) {
+                ProductImage current = byId.get(command.id);
+                current.setImageUrl(command.imageUrl);
+                current.setSortOrder(index);
+                retained.add(command.id);
+                ordered.add(current);
+                continue;
+            }
+            ProductImage created = new ProductImage();
+            created.setProduct(product);
+            created.setImageUrl(command.imageUrl);
+            created.setSortOrder(index);
+            created.setCreatedAt(LocalDateTime.now());
+            ordered.add(productImageRepository.save(created));
+        }
+        List<ProductImage> removed = new ArrayList<>();
+        for (ProductImage image : existing) {
+            if (image.getId() != null && !retained.contains(image.getId())) {
+                removed.add(image);
+            }
+        }
+        if (!removed.isEmpty()) {
+            productImageRepository.deleteAll(removed);
+        }
+        return ordered;
+    }
+
+    private static final class DetailImageCommand {
+        private final Long id;
+        private final String imageUrl;
+
+        private DetailImageCommand(Long id, String imageUrl) {
+            this.id = id;
+            this.imageUrl = imageUrl;
         }
     }
 }

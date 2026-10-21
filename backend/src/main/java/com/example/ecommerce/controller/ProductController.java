@@ -1,8 +1,12 @@
 package com.example.ecommerce.controller;
 
 import com.example.ecommerce.service.ProductService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -24,5 +28,17 @@ public class ProductController {
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String keyword) {
         return ResponseEntity.ok(productService.getProducts(page, size, keyword));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getProduct(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(productService.getProduct(id));
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "FAIL");
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
     }
 }

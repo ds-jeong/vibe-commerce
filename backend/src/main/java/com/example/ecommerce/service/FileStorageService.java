@@ -6,6 +6,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -25,6 +28,8 @@ public class FileStorageService {
     private static final Logger log = LoggerFactory.getLogger(FileStorageService.class);
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
+    private static final long MAX_IMAGE_BYTES = 2L * 1024 * 1024;
+    private static final int MIN_IMAGE_EDGE = 800;
 
     private final Path uploadRoot;
     private final String supabaseUrl;
@@ -67,6 +72,9 @@ public class FileStorageService {
             throw new IllegalArgumentException("jpg, jpeg, png, gif, webp 이미지만 업로드할 수 있습니다.");
         }
         requireSupabaseReady();
+        if (file.getSize() > MAX_IMAGE_BYTES) {
+            throw new IllegalArgumentException("이미지 파일은 2MB 이하여야 합니다.");
+        }
 
         String filename = UUID.randomUUID().toString().replace("-", "") + extension;
         byte[] bytes;
@@ -74,6 +82,13 @@ public class FileStorageService {
             bytes = file.getBytes();
         } catch (IOException e) {
             throw new IllegalStateException("이미지 저장에 실패했습니다.", e);
+        }
+        int[] edges = readImageEdges(bytes, extension);
+        if (edges == null) {
+            throw new IllegalArgumentException("이미지를 확인할 수 없습니다.");
+        }
+        if (edges[0] < MIN_IMAGE_EDGE || edges[1] < MIN_IMAGE_EDGE) {
+            throw new IllegalArgumentException("이미지는 800×800px 이상이어야 합니다.");
         }
 
         HttpRequest request = authorized(supabaseUrl + "/storage/v1/object/" + bucket + "/" + filename)
@@ -213,6 +228,64 @@ public class FileStorageService {
             return "이미지 저장에 실패했습니다.";
         }
         return "이미지 저장에 실패했습니다. " + body;
+    }
+
+    private int[] readImageEdges(byte[] bytes, String extension) {
+        if (".webp".equals(extension)) {
+            return readWebpEdges(bytes);
+        }
+        try {
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(bytes));
+            if (image == null) {
+                return null;
+            }
+            return new int[]{image.getWidth(), image.getHeight()};
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private int[] readWebpEdges(byte[] data) {
+        if (data.length < 30 || !matchesAscii(data, 0, "RIFF") || !matchesAscii(data, 8, "WEBP")) {
+            return null;
+        }
+        if (matchesAscii(data, 12, "VP8X")) {
+            int width = 1 + (data[24] & 0xff) + ((data[25] & 0xff) << 8) + ((data[26] & 0xff) << 16);
+            int height = 1 + (data[27] & 0xff) + ((data[28] & 0xff) << 8) + ((data[29] & 0xff) << 16);
+            return new int[]{width, height};
+        }
+        if (matchesAscii(data, 12, "VP8 ") && data.length >= 30) {
+            for (int index = 20; index < data.length - 6; index++) {
+                if ((data[index] & 0xff) == 0x9d && (data[index + 1] & 0xff) == 0x01 && (data[index + 2] & 0xff) == 0x2a) {
+                    int width = ((data[index + 3] & 0xff) | ((data[index + 4] & 0xff) << 8)) & 0x3fff;
+                    int height = ((data[index + 5] & 0xff) | ((data[index + 6] & 0xff) << 8)) & 0x3fff;
+                    return new int[]{width, height};
+                }
+            }
+            return null;
+        }
+        if (matchesAscii(data, 12, "VP8L") && data.length >= 25 && data[20] == 0x2f) {
+            int b0 = data[21] & 0xff;
+            int b1 = data[22] & 0xff;
+            int b2 = data[23] & 0xff;
+            int b3 = data[24] & 0xff;
+            int width = 1 + (b0 | ((b1 & 0x3f) << 8));
+            int height = 1 + (((b1 & 0xc0) >> 6) | (b2 << 2) | ((b3 & 0x0f) << 10));
+            return new int[]{width, height};
+        }
+        return null;
+    }
+
+    private boolean matchesAscii(byte[] data, int offset, String text) {
+        if (offset + text.length() > data.length) {
+            return false;
+        }
+        for (int index = 0; index < text.length(); index++) {
+            if (data[offset + index] != (byte) text.charAt(index)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String contentType(MultipartFile file, String extension) {
