@@ -32,6 +32,8 @@ class ProductServiceGetProductTest {
     private ProductImageRepository productImageRepository;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private ProductCatalogQuery productCatalogQuery;
 
     @Test
     void getProductReturnsExistingProduct() {
@@ -62,6 +64,7 @@ class ProductServiceGetProductTest {
                 orderItemRepository,
                 cartItemRepository,
                 productImageRepository,
-                categoryRepository);
+                categoryRepository,
+                productCatalogQuery);
     }
 }

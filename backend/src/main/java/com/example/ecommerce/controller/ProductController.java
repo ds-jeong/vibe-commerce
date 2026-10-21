@@ -32,9 +32,10 @@ public class ProductController {
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String sort,
             @AuthenticationPrincipal String username) {
         try {
-            Object products = productService.getProducts(page, size, keyword, categoryId);
+            Object products = productService.getProducts(page, size, keyword, categoryId, sort);
             productLikeService.attachToProducts(products, username);
             return ResponseEntity.ok(products);
         } catch (IllegalArgumentException e) {

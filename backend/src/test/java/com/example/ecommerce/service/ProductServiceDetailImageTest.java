@@ -43,6 +43,8 @@ class ProductServiceDetailImageTest {
     private ProductImageRepository productImageRepository;
     @Mock
     private CategoryRepository categoryRepository;
+    @Mock
+    private ProductCatalogQuery productCatalogQuery;
 
     @Test
     void createKeepsRepresentativeImageSeparateFromDetailImages() {
@@ -277,7 +279,8 @@ class ProductServiceDetailImageTest {
                 orderItemRepository,
                 cartItemRepository,
                 productImageRepository,
-                categoryRepository);
+                categoryRepository,
+                productCatalogQuery);
     }
 
     private Product existingProduct() {

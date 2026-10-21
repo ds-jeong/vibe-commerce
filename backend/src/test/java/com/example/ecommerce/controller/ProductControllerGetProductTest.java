@@ -81,7 +81,7 @@ class ProductControllerGetProductTest {
         product.setName("머그컵");
         product.setPrice(new BigDecimal("12000"));
         product.setImageUrl("https://example.com/mug.png");
-        when(productService.getProducts(null, null, null, null)).thenReturn(List.of(product));
+        when(productService.getProducts(null, null, null, null, null)).thenReturn(List.of(product));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
@@ -92,7 +92,7 @@ class ProductControllerGetProductTest {
 
     @Test
     void unknownCategoryFilterReturnsFail() throws Exception {
-        when(productService.getProducts(null, null, null, 99L))
+        when(productService.getProducts(null, null, null, 99L, null))
                 .thenThrow(new IllegalArgumentException("카테고리를 찾을 수 없습니다."));
 
         mockMvc.perform(get("/api/products").param("categoryId", "99"))

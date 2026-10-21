@@ -9,6 +9,10 @@ import com.example.ecommerce.repository.CategoryRepository;
 import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.repository.ProductImageRepository;
 import com.example.ecommerce.repository.ProductRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -19,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -26,6 +31,7 @@ import java.util.Set;
 @Service
 public class ProductService {
 
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
     private static final int MAX_DETAIL_IMAGES = 10;
 
     private final ProductRepository productRepository;
@@ -34,6 +40,7 @@ public class ProductService {
     private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
     private final CategoryRepository categoryRepository;
+    private final ProductCatalogQuery productCatalogQuery;
 
     public ProductService(
             ProductRepository productRepository,
@@ -41,13 +48,15 @@ public class ProductService {
             OrderItemRepository orderItemRepository,
             CartItemRepository cartItemRepository,
             ProductImageRepository productImageRepository,
-            CategoryRepository categoryRepository) {
+            CategoryRepository categoryRepository,
+            ProductCatalogQuery productCatalogQuery) {
         this.productRepository = productRepository;
         this.fileStorageService = fileStorageService;
         this.orderItemRepository = orderItemRepository;
         this.cartItemRepository = cartItemRepository;
         this.productImageRepository = productImageRepository;
         this.categoryRepository = categoryRepository;
+        this.productCatalogQuery = productCatalogQuery;
     }
 
     @Transactional(readOnly = true)
@@ -66,16 +75,29 @@ public class ProductService {
 
     @Transactional(readOnly = true)
     public Object getProducts(Integer page, Integer size, String keyword, Long categoryId) {
+        return getProducts(page, size, keyword, categoryId, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Object getProducts(Integer page, Integer size, String keyword, Long categoryId, String sort) {
         if (categoryId != null && !categoryRepository.existsById(categoryId)) {
             throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
         }
+        ProductCatalogQuery.SortKey sortKey = productCatalogQuery.parseSort(sort);
+        if (sortKey != null) {
+            try {
+                return listByCatalog(page, size, keyword, categoryId, sortKey);
+            } catch (DataAccessException ex) {
+                log.warn("상품 정렬 집계에 실패해 최신순으로 조회합니다.");
+            }
+        }
         String trimmed = keyword == null ? "" : keyword.trim();
-        Sort sort = Sort.by(Sort.Direction.DESC, "id");
+        Sort sortOrder = Sort.by(Sort.Direction.DESC, "id");
         boolean paged = page != null && size != null && page >= 0 && size > 0;
         Object result;
 
         if (paged) {
-            Pageable pageable = PageRequest.of(page, size, sort);
+            Pageable pageable = PageRequest.of(page, size, sortOrder);
             if (categoryId != null && trimmed.isEmpty()) {
                 result = productRepository.findByCategory_Id(categoryId, pageable);
             } else if (categoryId != null) {
@@ -86,16 +108,50 @@ public class ProductService {
                 result = productRepository.findByNameContainingIgnoreCase(trimmed, pageable);
             }
         } else if (categoryId != null && trimmed.isEmpty()) {
-            result = productRepository.findByCategory_Id(categoryId, sort);
+            result = productRepository.findByCategory_Id(categoryId, sortOrder);
         } else if (categoryId != null) {
-            result = productRepository.findByCategory_IdAndNameContainingIgnoreCase(categoryId, trimmed, sort);
+            result = productRepository.findByCategory_IdAndNameContainingIgnoreCase(categoryId, trimmed, sortOrder);
         } else if (trimmed.isEmpty()) {
-            result = productRepository.findAll(sort);
+            result = productRepository.findAll(sortOrder);
         } else {
-            result = productRepository.findByNameContainingIgnoreCase(trimmed, sort);
+            result = productRepository.findByNameContainingIgnoreCase(trimmed, sortOrder);
         }
         presentCategories(result);
         return result;
+    }
+
+    private Object listByCatalog(
+            Integer page,
+            Integer size,
+            String keyword,
+            Long categoryId,
+            ProductCatalogQuery.SortKey sortKey) {
+        ProductCatalogQuery.CatalogPage catalogPage = productCatalogQuery.find(keyword, categoryId, sortKey, page, size);
+        List<Product> ordered = orderByIds(catalogPage.ids());
+        presentCategories(ordered);
+        boolean paged = page != null && size != null && page >= 0 && size > 0;
+        if (!paged) {
+            return ordered;
+        }
+        return new PageImpl<>(ordered, PageRequest.of(page, size), catalogPage.total());
+    }
+
+    private List<Product> orderByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Product> byId = new LinkedHashMap<>();
+        for (Product product : productRepository.findAllById(ids)) {
+            byId.put(product.getId(), product);
+        }
+        List<Product> ordered = new ArrayList<>();
+        for (Long id : ids) {
+            Product product = byId.get(id);
+            if (product != null) {
+                ordered.add(product);
+            }
+        }
+        return ordered;
     }
 
     @Transactional

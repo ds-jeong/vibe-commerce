@@ -59,6 +59,23 @@ export default function ProductListPage() {
               </button>
             ))}
           </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {[
+              ['', '최신순'],
+              ['sales', '판매량순'],
+              ['likes', '좋아요순'],
+            ].map(([value, label]) => (
+              <button
+                key={value || 'newest'}
+                type="button"
+                aria-pressed={p.sort === value}
+                onClick={() => p.selectSort(value)}
+                className={categoryChip(p.sort === value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           {p.categoryError ? (
             <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               <p>{p.categoryError}</p>

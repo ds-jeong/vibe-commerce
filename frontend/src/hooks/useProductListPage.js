@@ -125,7 +125,18 @@ export default function useProductListPage() {
   // 상품 목록 조회
   // =========================================================
 
-  const listUrl = (keyword, nextCategoryId) => {
+  const normalizeSort = (value) => (value === 'sales' || value === 'likes' ? value : '');
+
+  const initialSort = (() => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') {
+      return '';
+    }
+    return normalizeSort(new URLSearchParams(window.location.search).get('sort'));
+  })();
+
+  const [sort, setSort] = useState(initialSort);
+
+  const listUrl = (keyword, nextCategoryId, nextSort = sort) => {
     const params = new URLSearchParams();
     if (keyword) {
       params.set('keyword', keyword);
@@ -133,15 +144,19 @@ export default function useProductListPage() {
     if (nextCategoryId) {
       params.set('categoryId', String(nextCategoryId));
     }
+    const safeSort = normalizeSort(nextSort);
+    if (safeSort) {
+      params.set('sort', safeSort);
+    }
     const query = params.toString();
     return query ? `/?${query}` : '/';
   };
 
-  const pushListUrl = (keyword, nextCategoryId) => {
+  const pushListUrl = (keyword, nextCategoryId, nextSort = sort) => {
     if (typeof window === 'undefined' || window.location.pathname !== '/') {
       return;
     }
-    const url = listUrl(keyword, nextCategoryId);
+    const url = listUrl(keyword, nextCategoryId, nextSort);
     if (`${window.location.pathname}${window.location.search}` === url) {
       return;
     }
@@ -184,6 +199,7 @@ export default function useProductListPage() {
       setSearchKeyword(params.get('keyword')?.trim() || '');
       setAppliedKeyword(params.get('keyword')?.trim() || '');
       setCategoryId(params.get('categoryId')?.trim() || '');
+      setSort(normalizeSort(params.get('sort')));
       setCurrentPage(0);
     };
     window.addEventListener('popstate', onPopState);
@@ -192,7 +208,7 @@ export default function useProductListPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, appliedKeyword, categoryId]);
+  }, [currentPage, appliedKeyword, categoryId, sort]);
 
   const selectCategory = (nextId) => {
     const value = nextId == null || nextId === '' ? '' : String(nextId);
@@ -201,7 +217,17 @@ export default function useProductListPage() {
     }
     setCategoryId(value);
     setCurrentPage(0);
-    pushListUrl(appliedKeyword, value);
+    pushListUrl(appliedKeyword, value, sort);
+  };
+
+  const selectSort = (nextSort) => {
+    const value = normalizeSort(nextSort);
+    if (value === sort) {
+      return;
+    }
+    setSort(value);
+    setCurrentPage(0);
+    pushListUrl(appliedKeyword, categoryId, value);
   };
 
   const fetchProducts = async () => {
@@ -217,6 +243,7 @@ export default function useProductListPage() {
       const categoryParam = categoryId
         ? `&categoryId=${encodeURIComponent(categoryId)}`
         : '';
+      const sortParam = sort ? `&sort=${encodeURIComponent(sort)}` : '';
 
       const headers = {};
       const token = localStorage.getItem('userToken');
@@ -224,7 +251,7 @@ export default function useProductListPage() {
         headers.Authorization = `Bearer ${token}`;
       }
       const response = await fetch(
-        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}${categoryParam}`,
+        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}${categoryParam}${sortParam}`,
         { headers }
       );
 
@@ -1908,6 +1935,8 @@ export default function useProductListPage() {
     products,
     categories,
     categoryId,
+    sort,
+    selectSort,
     categoryError,
     reloadCategories,
     listError,
