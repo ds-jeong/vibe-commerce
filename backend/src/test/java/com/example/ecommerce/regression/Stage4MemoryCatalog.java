@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
@@ -144,6 +145,20 @@ final class Stage4MemoryCatalog {
 
         lenient().when(productRepository.findById(anyLong()))
                 .thenAnswer(inv -> Optional.ofNullable(products.get(inv.getArgument(0))));
+        lenient().when(productRepository.decrementStockIfEnough(anyLong(), anyInt()))
+                .thenAnswer(inv -> {
+                    Product product = products.get(inv.getArgument(0));
+                    if (product == null) {
+                        return 0;
+                    }
+                    int count = inv.getArgument(1);
+                    int current = product.getStockQuantity() == null ? 0 : product.getStockQuantity();
+                    if (current < count) {
+                        return 0;
+                    }
+                    product.setStockQuantity(current - count);
+                    return 1;
+                });
         lenient().when(productRepository.save(any(Product.class))).thenAnswer(inv -> {
             Product product = inv.getArgument(0);
             products.put(product.getId(), product);

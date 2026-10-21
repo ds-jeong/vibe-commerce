@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as PortOne from '@portone/browser-sdk/v2';
+import { purchaseBlockMessage } from '../utils/saleStatus';
 import { isKoreanName, KOREAN_NAME_MESSAGE } from '../utils/validation';
 
 export default function useProductListPage() {
@@ -32,6 +33,19 @@ export default function useProductListPage() {
   const [loading, setLoading] = useState(false);
   const [searchKeyword, setSearchKeyword] = useState(initialKeyword);
   const [appliedKeyword, setAppliedKeyword] = useState(initialKeyword);
+  const initialCategoryId = (() => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') {
+      return '';
+    }
+    return new URLSearchParams(window.location.search).get('categoryId')?.trim() || '';
+  })();
+
+  const [categories, setCategories] = useState([]);
+  const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [categoryError, setCategoryError] = useState('');
+  const [listError, setListError] = useState('');
+  const categoryRequestRef = useRef(0);
+  const productRequestRef = useRef(0);
 
   const pageSize = 12;
 
@@ -109,20 +123,101 @@ export default function useProductListPage() {
   // 상품 목록 조회
   // =========================================================
 
+  const listUrl = (keyword, nextCategoryId) => {
+    const params = new URLSearchParams();
+    if (keyword) {
+      params.set('keyword', keyword);
+    }
+    if (nextCategoryId) {
+      params.set('categoryId', String(nextCategoryId));
+    }
+    const query = params.toString();
+    return query ? `/?${query}` : '/';
+  };
+
+  const pushListUrl = (keyword, nextCategoryId) => {
+    if (typeof window === 'undefined' || window.location.pathname !== '/') {
+      return;
+    }
+    const url = listUrl(keyword, nextCategoryId);
+    if (`${window.location.pathname}${window.location.search}` === url) {
+      return;
+    }
+    window.history.pushState(null, '', url);
+  };
+
+  const reloadCategories = async () => {
+    const requestId = categoryRequestRef.current + 1;
+    categoryRequestRef.current = requestId;
+    setCategoryError('');
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json().catch(() => null);
+      if (requestId !== categoryRequestRef.current) {
+        return;
+      }
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error('카테고리 목록을 불러오지 못했습니다.');
+      }
+      setCategories(data);
+    } catch (error) {
+      if (requestId !== categoryRequestRef.current) {
+        return;
+      }
+      console.error('카테고리 조회 오류:', error);
+      setCategoryError('카테고리 목록을 불러오지 못했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    reloadCategories();
+  }, []);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (window.location.pathname !== '/') {
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      setSearchKeyword(params.get('keyword')?.trim() || '');
+      setAppliedKeyword(params.get('keyword')?.trim() || '');
+      setCategoryId(params.get('categoryId')?.trim() || '');
+      setCurrentPage(0);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
   useEffect(() => {
     fetchProducts();
-  }, [currentPage, appliedKeyword]);
+  }, [currentPage, appliedKeyword, categoryId]);
+
+  const selectCategory = (nextId) => {
+    const value = nextId == null || nextId === '' ? '' : String(nextId);
+    if (value === categoryId) {
+      return;
+    }
+    setCategoryId(value);
+    setCurrentPage(0);
+    pushListUrl(appliedKeyword, value);
+  };
 
   const fetchProducts = async () => {
+    const requestId = productRequestRef.current + 1;
+    productRequestRef.current = requestId;
     setLoading(true);
+    setListError('');
 
     try {
       const keywordParam = appliedKeyword
         ? `&keyword=${encodeURIComponent(appliedKeyword.trim())}`
         : '';
+      const categoryParam = categoryId
+        ? `&categoryId=${encodeURIComponent(categoryId)}`
+        : '';
 
       const response = await fetch(
-        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}`
+        `/api/products?page=${currentPage}&size=${pageSize}${keywordParam}${categoryParam}`
       );
 
       if (!response.ok) {
@@ -132,6 +227,9 @@ export default function useProductListPage() {
       }
 
       const data = await response.json();
+      if (requestId !== productRequestRef.current) {
+        return;
+      }
 
       const productList = Array.isArray(data)
         ? data
@@ -150,10 +248,17 @@ export default function useProductListPage() {
       setProducts(productList);
       setTotalPages(pages);
     } catch (error) {
+      if (requestId !== productRequestRef.current) {
+        return;
+      }
       console.error('상품 조회 오류:', error);
-      alert('상품을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+      setProducts([]);
+      setTotalPages(0);
+      setListError('상품을 불러오지 못했습니다. 다시 시도해 주세요.');
     } finally {
-      setLoading(false);
+      if (requestId === productRequestRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -397,6 +502,11 @@ export default function useProductListPage() {
 
   const handleAddToCart = async (product, quantity = 1) => {
     const amount = Number(quantity) > 0 ? Number(quantity) : 1;
+    const blocked = purchaseBlockMessage(product, amount);
+    if (blocked) {
+      alert(blocked);
+      return;
+    }
     const token = localStorage.getItem('userToken');
 
     // =======================================================
@@ -955,6 +1065,11 @@ export default function useProductListPage() {
 
   const handleImmediateBuy = (product, quantity = 1) => {
     const amount = Number(quantity) > 0 ? Number(quantity) : 1;
+    const blocked = purchaseBlockMessage(product, amount);
+    if (blocked) {
+      alert(blocked);
+      return;
+    }
     const item = toCheckoutItem({
       ...product,
       quantity: amount,
@@ -1734,6 +1849,7 @@ export default function useProductListPage() {
       e.preventDefault();
     }
     const nextKeyword = searchKeyword.trim();
+    pushListUrl(nextKeyword, categoryId);
     if (currentPage === 0 && appliedKeyword === nextKeyword) {
       fetchProducts();
       return;
@@ -1744,6 +1860,13 @@ export default function useProductListPage() {
 
   return {
     products,
+    categories,
+    categoryId,
+    categoryError,
+    reloadCategories,
+    listError,
+    reloadProducts: fetchProducts,
+    selectCategory,
     currentPage,
     totalPages,
     loading,

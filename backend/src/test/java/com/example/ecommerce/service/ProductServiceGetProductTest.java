@@ -2,6 +2,7 @@ package com.example.ecommerce.service;
 
 import com.example.ecommerce.domain.Product;
 import com.example.ecommerce.repository.CartItemRepository;
+import com.example.ecommerce.repository.CategoryRepository;
 import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.repository.ProductImageRepository;
 import com.example.ecommerce.repository.ProductRepository;
@@ -29,6 +30,8 @@ class ProductServiceGetProductTest {
     private CartItemRepository cartItemRepository;
     @Mock
     private ProductImageRepository productImageRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @Test
     void getProductReturnsExistingProduct() {
@@ -58,6 +61,7 @@ class ProductServiceGetProductTest {
                 fileStorageService,
                 orderItemRepository,
                 cartItemRepository,
-                productImageRepository);
+                productImageRepository,
+                categoryRepository);
     }
 }

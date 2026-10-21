@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminStatsChart from '../components/admin/AdminStatsChart';
 import AdminProductDashboard from '../components/admin/AdminProductDashboard';
+import AdminCategoryPanel from '../components/admin/AdminCategoryPanel';
 import AdminOrderDashboard from '../components/admin/AdminOrderDashboard';
 import AdminInquiryDashboard from '../components/admin/AdminInquiryDashboard';
 import AdminAnalyticsTab from '../components/admin/AdminAnalyticsTab';
@@ -109,6 +110,7 @@ export default function AdminDashboardPage() {
     { id: 'dashboard', label: '대시보드' },
     { id: 'analytics', label: '판매/문의 통계' },
     { id: 'products', label: '상품 관리' },
+    { id: 'categories', label: '카테고리' },
     { id: 'orders', label: '주문/배송' },
     { id: 'returns', label: '반품 관리' },
     { id: 'inquiries', label: '1:1 문의' },
@@ -189,6 +191,7 @@ export default function AdminDashboardPage() {
       )}
       {tab === 'analytics' && <AdminAnalyticsTab />}
       {tab === 'products' && <AdminProductDashboard />}
+      {tab === 'categories' && <AdminCategoryPanel />}
       {tab === 'orders' && <AdminOrderDashboard />}
       {tab === 'returns' && <AdminReturnDashboard />}
       {tab === 'inquiries' && <AdminInquiryDashboard />}

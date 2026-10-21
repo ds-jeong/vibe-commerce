@@ -26,8 +26,16 @@ public class ProductController {
     public ResponseEntity<?> getAllProducts(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
-            @RequestParam(required = false) String keyword) {
-        return ResponseEntity.ok(productService.getProducts(page, size, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId) {
+        try {
+            return ResponseEntity.ok(productService.getProducts(page, size, keyword, categoryId));
+        } catch (IllegalArgumentException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "FAIL");
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
     }
 
     @GetMapping("/{id}")

@@ -36,9 +36,16 @@ public class OrderController {
     }
 
     @PostMapping("/api/orders/verify")
-    public ResponseEntity<String> verifyPayment(@RequestBody Map<String, Object> params) {
-        orderService.verifyAndCompletePayment(params);
-        return ResponseEntity.ok("success");
+    public ResponseEntity<?> verifyPayment(@RequestBody Map<String, Object> params) {
+        try {
+            orderService.verifyAndCompletePayment(params);
+            return ResponseEntity.ok("success");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "FAIL");
+            response.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
     }
 
     @PostMapping("/api/orders/non-user/login")

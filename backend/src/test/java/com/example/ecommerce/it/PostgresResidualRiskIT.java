@@ -13,6 +13,7 @@ import com.example.ecommerce.repository.OrdersRepository;
 import com.example.ecommerce.repository.ProductRepository;
 import com.example.ecommerce.repository.ReturnRequestRepository;
 import com.example.ecommerce.repository.UserRepository;
+import com.example.ecommerce.service.OrderService;
 import com.example.ecommerce.service.PortOneRefundService;
 import com.example.ecommerce.service.ReturnRequestService;
 import com.example.ecommerce.service.SettlementBatchService;
@@ -31,6 +32,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,6 +57,8 @@ import static org.mockito.Mockito.verify;
 @ActiveProfiles("itest")
 class PostgresResidualRiskIT {
 
+    @Autowired
+    private OrderService orderService;
     @Autowired
     private ReturnRequestService returnRequestService;
     @Autowired
@@ -193,6 +197,78 @@ class PostgresResidualRiskIT {
     }
 
     @Test
+    void twoPaymentCompletionsCannotConsumeTheSameLastStock() throws Exception {
+        Product product = new Product();
+        product.setName("it-stock-race");
+        product.setPrice(new BigDecimal("10000"));
+        product.setStockQuantity(1);
+        product = productRepository.save(product);
+        Long productId = product.getId();
+        Orders first = orderedForPayment(product);
+        Orders second = orderedForPayment(product);
+
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch holding = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(3);
+        AtomicInteger successes = new AtomicInteger();
+        AtomicInteger conflicts = new AtomicInteger();
+        AtomicReference<Throwable> unexpected = new AtomicReference<>();
+        try {
+            Future<?> lockHolder = pool.submit(() -> transactions.executeWithoutResult(status -> {
+                jdbcTemplate.queryForObject(
+                        "SELECT id FROM products WHERE id = ? FOR UPDATE", Long.class, productId);
+                holding.countDown();
+                try {
+                    if (!release.await(8, TimeUnit.SECONDS)) {
+                        fail("lock holder was not released");
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    fail(e);
+                }
+            }));
+
+            assertTrue(holding.await(8, TimeUnit.SECONDS), "product row lock was not acquired");
+            Future<?> payFirst = pool.submit(() ->
+                    runPayment(first.getOrderMerchantUid(), successes, conflicts, unexpected));
+            Future<?> paySecond = pool.submit(() ->
+                    runPayment(second.getOrderMerchantUid(), successes, conflicts, unexpected));
+
+            assertTrue(waitUntilBlocked(2, 8), () -> "both payments should wait on the product row\n" + lockDiagnostics());
+            release.countDown();
+            lockHolder.get(8, TimeUnit.SECONDS);
+            payFirst.get(8, TimeUnit.SECONDS);
+            paySecond.get(8, TimeUnit.SECONDS);
+
+            if (unexpected.get() != null) {
+                fail(unexpected.get());
+            }
+            assertEquals(1, successes.get(), "exactly one payment should consume the last stock");
+            assertEquals(1, conflicts.get(), "the other payment should be rejected");
+            assertEquals(0, jdbcTemplate.queryForObject(
+                    "SELECT stock_quantity FROM products WHERE id = ?", Integer.class, productId));
+            assertEquals(1, countStatus(first.getId(), second.getId(), "PAID"));
+            assertEquals(1, countStatus(first.getId(), second.getId(), "ORDERED"));
+            assertEquals(1, jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM payments WHERE order_id IN (?, ?)",
+                    Integer.class, first.getId(), second.getId()));
+            verifyNoPortOneHttp();
+        } finally {
+            release.countDown();
+            pool.shutdown();
+            try {
+                if (!pool.awaitTermination(8, TimeUnit.SECONDS)) {
+                    pool.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                pool.shutdownNow();
+            }
+            cleanupRace(productId);
+        }
+    }
+
+    @Test
     void settlementBatchUsesPgDateAndCountTypesAndIgnoresRefundedOrders() {
         LocalDate day = LocalDate.of(2026, 10, 15);
         jdbcTemplate.update("DELETE FROM refunds");
@@ -256,6 +332,86 @@ class PostgresResidualRiskIT {
                 () -> portOneRefundService.cancelPaymentForReturnRefund(payment, "관리자 반품 승인 환불"));
         assertTrue(missingSecret.getMessage().contains("시크릿"));
         verifyNoPortOneHttp();
+    }
+
+    private void runPayment(
+            String merchantUid,
+            AtomicInteger successes,
+            AtomicInteger conflicts,
+            AtomicReference<Throwable> unexpected) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("merchantUid", merchantUid);
+            params.put("totalAmount", "10000");
+            params.put("txId", "tx-" + merchantUid);
+            params.put("paymentId", "pay-" + merchantUid);
+            orderService.verifyAndCompletePayment(params);
+            successes.incrementAndGet();
+        } catch (RuntimeException ex) {
+            if (rootMessage(ex).contains("재고가 부족")) {
+                conflicts.incrementAndGet();
+            } else {
+                unexpected.compareAndSet(null, ex);
+            }
+        }
+    }
+
+    private boolean waitUntilBlocked(int waiters, int seconds) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
+        while (System.nanoTime() < deadline) {
+            Integer waiting = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM pg_stat_activity "
+                            + "WHERE datname = current_database() AND wait_event_type = 'Lock'",
+                    Integer.class);
+            if (waiting != null && waiting >= waiters) {
+                return true;
+            }
+            Thread.sleep(50);
+        }
+        return false;
+    }
+
+    private String lockDiagnostics() {
+        return jdbcTemplate.queryForList(
+                "SELECT pid, state, wait_event_type, wait_event, left(query, 180) AS query "
+                        + "FROM pg_stat_activity WHERE datname = current_database()")
+                .toString();
+    }
+
+    private int countStatus(Long firstId, Long secondId, String status) {
+        Integer count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM orders WHERE id IN (?, ?) AND status = ?",
+                Integer.class, firstId, secondId, status);
+        return count == null ? 0 : count;
+    }
+
+    private Orders orderedForPayment(Product product) {
+        Orders order = new Orders();
+        order.setOrderMerchantUid("IT-RACE-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        order.setStatus(OrderStatus.ORDERED);
+        order.setTotalAmount(new BigDecimal("10000"));
+        order.setNetAmount(new BigDecimal("10000"));
+        order.setDiscountAmount(BigDecimal.ZERO);
+        order.setOrderDate(LocalDateTime.now());
+        OrderItem item = new OrderItem();
+        item.setOrder(order);
+        item.setProduct(product);
+        item.setCount(1);
+        item.setOrderPrice(new BigDecimal("10000"));
+        order.setOrderItems(List.of(item));
+        return ordersRepository.save(order);
+    }
+
+    private void cleanupRace(Long productId) {
+        List<Long> orderIds = jdbcTemplate.queryForList(
+                "SELECT order_id FROM order_items WHERE product_id = ?", Long.class, productId);
+        for (Long orderId : orderIds) {
+            jdbcTemplate.update("DELETE FROM settlements WHERE order_id = ?", orderId);
+            jdbcTemplate.update("DELETE FROM payments WHERE order_id = ?", orderId);
+            jdbcTemplate.update("DELETE FROM order_items WHERE order_id = ?", orderId);
+            jdbcTemplate.update("DELETE FROM orders WHERE id = ?", orderId);
+        }
+        jdbcTemplate.update("DELETE FROM products WHERE id = ?", productId);
     }
 
     private void runMockComplete(

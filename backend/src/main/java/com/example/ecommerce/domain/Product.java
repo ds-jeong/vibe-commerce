@@ -1,5 +1,6 @@
 package com.example.ecommerce.domain;
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
@@ -27,6 +28,23 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private SaleStatus saleStatus = SaleStatus.ON_SALE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    @JsonIgnore
+    private Category category;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long categoryId;
+
+    @Transient
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String categoryName;
 
     @Transient
     @JsonInclude(JsonInclude.Include.NON_NULL)

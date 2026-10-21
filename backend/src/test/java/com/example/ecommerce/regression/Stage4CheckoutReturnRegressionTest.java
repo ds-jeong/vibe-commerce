@@ -13,6 +13,7 @@ import com.example.ecommerce.service.OrderService;
 import com.example.ecommerce.service.PortOneRefundService;
 import com.example.ecommerce.service.ReturnRequestService;
 import com.example.ecommerce.service.SettlementLedgerService;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,8 @@ class Stage4CheckoutReturnRegressionTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private PortOneRefundService portOneRefundService;
+    @Mock
+    private EntityManager entityManager;
 
     private Stage4MemoryCatalog memory;
     private OrderService orderService;
@@ -85,7 +88,8 @@ class Stage4CheckoutReturnRegressionTest {
                 userRepository,
                 portOneRefundService,
                 new SettlementLedgerService(settlementRepository),
-                returnRequestService);
+                returnRequestService,
+                entityManager);
     }
 
     @Test

@@ -1,8 +1,11 @@
 package com.example.ecommerce.service;
 
+import com.example.ecommerce.domain.Category;
 import com.example.ecommerce.domain.Product;
+import com.example.ecommerce.domain.SaleStatus;
 import com.example.ecommerce.domain.ProductImage;
 import com.example.ecommerce.repository.CartItemRepository;
+import com.example.ecommerce.repository.CategoryRepository;
 import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.repository.ProductImageRepository;
 import com.example.ecommerce.repository.ProductRepository;
@@ -30,18 +33,21 @@ public class ProductService {
     private final FileStorageService fileStorageService;
     private final OrderItemRepository orderItemRepository;
     private final CartItemRepository cartItemRepository;
+    private final CategoryRepository categoryRepository;
 
     public ProductService(
             ProductRepository productRepository,
             FileStorageService fileStorageService,
             OrderItemRepository orderItemRepository,
             CartItemRepository cartItemRepository,
-            ProductImageRepository productImageRepository) {
+            ProductImageRepository productImageRepository,
+            CategoryRepository categoryRepository) {
         this.productRepository = productRepository;
         this.fileStorageService = fileStorageService;
         this.orderItemRepository = orderItemRepository;
         this.cartItemRepository = cartItemRepository;
         this.productImageRepository = productImageRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     @Transactional(readOnly = true)
@@ -49,27 +55,47 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
         product.setDetailImages(loadDetailImages(id));
+        presentCategory(product);
         return product;
     }
 
     @Transactional(readOnly = true)
     public Object getProducts(Integer page, Integer size, String keyword) {
+        return getProducts(page, size, keyword, null);
+    }
+
+    @Transactional(readOnly = true)
+    public Object getProducts(Integer page, Integer size, String keyword, Long categoryId) {
+        if (categoryId != null && !categoryRepository.existsById(categoryId)) {
+            throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+        }
         String trimmed = keyword == null ? "" : keyword.trim();
         Sort sort = Sort.by(Sort.Direction.DESC, "id");
         boolean paged = page != null && size != null && page >= 0 && size > 0;
+        Object result;
 
         if (paged) {
             Pageable pageable = PageRequest.of(page, size, sort);
-            if (trimmed.isEmpty()) {
-                return productRepository.findAll(pageable);
+            if (categoryId != null && trimmed.isEmpty()) {
+                result = productRepository.findByCategory_Id(categoryId, pageable);
+            } else if (categoryId != null) {
+                result = productRepository.findByCategory_IdAndNameContainingIgnoreCase(categoryId, trimmed, pageable);
+            } else if (trimmed.isEmpty()) {
+                result = productRepository.findAll(pageable);
+            } else {
+                result = productRepository.findByNameContainingIgnoreCase(trimmed, pageable);
             }
-            return productRepository.findByNameContainingIgnoreCase(trimmed, pageable);
+        } else if (categoryId != null && trimmed.isEmpty()) {
+            result = productRepository.findByCategory_Id(categoryId, sort);
+        } else if (categoryId != null) {
+            result = productRepository.findByCategory_IdAndNameContainingIgnoreCase(categoryId, trimmed, sort);
+        } else if (trimmed.isEmpty()) {
+            result = productRepository.findAll(sort);
+        } else {
+            result = productRepository.findByNameContainingIgnoreCase(trimmed, sort);
         }
-
-        if (trimmed.isEmpty()) {
-            return productRepository.findAll(sort);
-        }
-        return productRepository.findByNameContainingIgnoreCase(trimmed, sort);
+        presentCategories(result);
+        return result;
     }
 
     @Transactional
@@ -80,6 +106,7 @@ public class ProductService {
         product.setCreatedAt(LocalDateTime.now());
         Product saved = productRepository.save(product);
         saved.setDetailImages(commands == null ? List.of() : applyDetailCommands(saved, commands));
+        presentCategory(saved);
         return saved;
     }
 
@@ -91,6 +118,7 @@ public class ProductService {
         applyProductFields(product, payload, false);
         Product saved = productRepository.save(product);
         saved.setDetailImages(commands == null ? loadDetailImages(saved.getId()) : applyDetailCommands(saved, commands));
+        presentCategory(saved);
         return saved;
     }
 
@@ -144,6 +172,66 @@ public class ProductService {
             Object description = payload.get("description");
             product.setDescription(description == null ? null : String.valueOf(description));
         }
+        if (payload.containsKey("categoryId")) {
+            applyCategory(product, payload.get("categoryId"));
+        }
+        if (payload.containsKey("saleStatus")) {
+            product.setSaleStatus(parseSaleStatus(payload.get("saleStatus")));
+        }
+    }
+
+    private SaleStatus parseSaleStatus(Object raw) {
+        if (raw == null || String.valueOf(raw).isBlank()) {
+            return SaleStatus.ON_SALE;
+        }
+        try {
+            return SaleStatus.valueOf(String.valueOf(raw).trim());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("판매 상태가 올바르지 않습니다.");
+        }
+    }
+
+    private void applyCategory(Product product, Object raw) {
+        if (raw == null || String.valueOf(raw).isBlank()) {
+            product.setCategory(null);
+            return;
+        }
+        long categoryId;
+        try {
+            categoryId = Long.parseLong(String.valueOf(raw).trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+        }
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다."));
+        product.setCategory(category);
+    }
+
+    private void presentCategories(Object result) {
+        if (result instanceof org.springframework.data.domain.Page<?> page) {
+            page.getContent().forEach(this::presentIfProduct);
+            return;
+        }
+        if (result instanceof List<?> products) {
+            products.forEach(this::presentIfProduct);
+        }
+    }
+
+    private void presentIfProduct(Object item) {
+        if (item instanceof Product product) {
+            presentCategory(product);
+        }
+    }
+
+    private void presentCategory(Product product) {
+        Category category = product.getCategory();
+        if (category == null) {
+            product.setCategoryId(null);
+            product.setCategoryName(null);
+            return;
+        }
+        product.setCategoryId(category.getId());
+        product.setCategoryName(category.getName());
     }
 
     private List<ProductImage> loadDetailImages(Long productId) {

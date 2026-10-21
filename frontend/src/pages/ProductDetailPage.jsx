@@ -58,7 +58,8 @@ export default function ProductDetailPage() {
   }, [id]);
 
   const stock = product?.stockQuantity;
-  const hasStock = stock == null || Number(stock) > 0;
+  const stopped = product?.saleStatus === 'STOPPED';
+  const hasStock = !stopped && (stock == null || Number(stock) > 0);
   const maxQuantity = stock == null ? 99 : Math.max(Number(stock) || 0, 0);
   const detailImages = Array.isArray(product?.detailImages)
     ? product.detailImages.filter((image) => image?.imageUrl)
@@ -121,13 +122,23 @@ export default function ProductDetailPage() {
               </div>
             </div>
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-black sm:text-3xl">{product.name}</h2>
+              {product.categoryId && product.categoryName ? (
+                <Link
+                  to={`/?categoryId=${encodeURIComponent(product.categoryId)}`}
+                  className="text-xs font-semibold text-slate-500 no-underline hover:text-black"
+                >
+                  {product.categoryName}
+                </Link>
+              ) : null}
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-black sm:text-3xl">{product.name}</h2>
               <p className="mt-4 text-2xl font-semibold text-black">
                 {shop.formatPrice(product.price)}
                 <span className="ml-1 text-sm font-normal text-slate-500">원</span>
               </p>
               <p className="mt-4 text-sm font-semibold text-slate-700">
-                {stock == null
+                {stopped
+                  ? '판매중지 · 구매 불가'
+                  : stock == null
                   ? '재고 정보 없음'
                   : hasStock
                     ? `재고 ${Number(stock).toLocaleString('ko-KR')}개 · 구매 가능`

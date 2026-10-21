@@ -7,6 +7,12 @@ import GuestOrderModal from '../components/cart/GuestOrderModal';
 import OrderConfirmModal from '../components/order/OrderConfirmModal';
 import ProductCard from '../components/product/ProductCard';
 
+function categoryChip(active) {
+  return active
+    ? 'rounded-full bg-[#0A192F] px-4 py-2 text-sm font-medium text-white'
+    : 'rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 transition hover:border-slate-400';
+}
+
 export default function ProductListPage() {
   const p = useProductListPage();
   const pRef = useRef(p);
@@ -32,15 +38,61 @@ export default function ProductListPage() {
           <h2 className="text-2xl font-semibold tracking-tight text-black sm:text-3xl">
             상품 목록
           </h2>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button
+              type="button"
+              aria-pressed={p.categoryId === ''}
+              onClick={() => p.selectCategory('')}
+              className={categoryChip(p.categoryId === '')}
+            >
+              전체
+            </button>
+            {p.categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={String(p.categoryId) === String(category.id)}
+                onClick={() => p.selectCategory(category.id)}
+                className={categoryChip(String(p.categoryId) === String(category.id))}
+              >
+                {category.name}
+              </button>
+            ))}
+          </div>
+          {p.categoryError ? (
+            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <p>{p.categoryError}</p>
+              <button
+                type="button"
+                onClick={p.reloadCategories}
+                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+              >
+                다시 시도
+              </button>
+            </div>
+          ) : null}
         </div>
 
-        {p.loading ? (
+        {p.listError ? (
+          <div className="rounded-md border border-slate-100 bg-slate-50 py-16 text-center">
+            <p className="text-sm text-slate-600">{p.listError}</p>
+            <button
+              type="button"
+              onClick={p.reloadProducts}
+              className="mt-4 rounded-md bg-[#0A192F] px-4 py-2 text-sm font-semibold text-white"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : p.loading ? (
           <div className="flex min-h-[300px] items-center justify-center text-sm text-slate-500">
             상품을 불러오는 중입니다.
           </div>
         ) : p.products.length === 0 ? (
           <div className="rounded-md border border-slate-100 bg-slate-50 py-20 text-center text-slate-500">
-            등록된 상품이 없습니다.
+            {p.categoryId
+              ? '이 카테고리에 등록된 상품이 없습니다.'
+              : '등록된 상품이 없습니다.'}
           </div>
         ) : (
           <>

@@ -3,6 +3,7 @@ package com.example.ecommerce.service;
 import com.example.ecommerce.domain.Product;
 import com.example.ecommerce.domain.ProductImage;
 import com.example.ecommerce.repository.CartItemRepository;
+import com.example.ecommerce.repository.CategoryRepository;
 import com.example.ecommerce.repository.OrderItemRepository;
 import com.example.ecommerce.repository.ProductImageRepository;
 import com.example.ecommerce.repository.ProductRepository;
@@ -40,6 +41,8 @@ class ProductServiceDetailImageTest {
     private CartItemRepository cartItemRepository;
     @Mock
     private ProductImageRepository productImageRepository;
+    @Mock
+    private CategoryRepository categoryRepository;
 
     @Test
     void createKeepsRepresentativeImageSeparateFromDetailImages() {
@@ -273,7 +276,8 @@ class ProductServiceDetailImageTest {
                 fileStorageService,
                 orderItemRepository,
                 cartItemRepository,
-                productImageRepository);
+                productImageRepository,
+                categoryRepository);
     }
 
     private Product existingProduct() {

@@ -6,6 +6,7 @@ import com.example.ecommerce.domain.OrderStatus;
 import com.example.ecommerce.domain.Orders;
 import com.example.ecommerce.domain.Payment;
 import com.example.ecommerce.domain.Product;
+import com.example.ecommerce.domain.SaleStatus;
 import com.example.ecommerce.domain.User;
 import com.example.ecommerce.repository.OrdersRepository;
 import com.example.ecommerce.repository.PaymentRepository;
@@ -14,6 +15,7 @@ import com.example.ecommerce.repository.UserRepository;
 import com.example.ecommerce.global.KoreanNames;
 import com.example.ecommerce.global.PagingSupport;
 import lombok.RequiredArgsConstructor;
+import jakarta.persistence.EntityManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -41,6 +44,7 @@ public class OrderService {
     private final PortOneRefundService portOneRefundService;
     private final SettlementLedgerService settlementLedgerService;
     private final ReturnRequestService returnRequestService;
+    private final EntityManager entityManager;
 
     public Map<String, Object> createOrder(Map<String, Object> params) {
         return createOrder(params, null);
@@ -94,6 +98,7 @@ public class OrderService {
         if (itemsObj instanceof List<?> rawItems && !rawItems.isEmpty()) {
             BigDecimal total = BigDecimal.ZERO;
             List<OrderItem> orderItems = new ArrayList<>();
+            Map<Long, Integer> requestedByProduct = new HashMap<>();
 
             for (Object rawItem : rawItems) {
                 if (!(rawItem instanceof Map<?, ?> itemMap)) {
@@ -115,6 +120,9 @@ public class OrderService {
 
                 Product product = productRepository.findById(productId)
                         .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 상품입니다. id=" + productId));
+                int requested = requestedByProduct.getOrDefault(productId, 0) + quantity;
+                assertNewOrderAllowed(product, requested);
+                requestedByProduct.put(productId, requested);
 
                 BigDecimal lineAmount = product.getPrice().multiply(BigDecimal.valueOf(quantity));
                 total = total.add(lineAmount);
@@ -135,11 +143,17 @@ public class OrderService {
             return total;
         }
 
-        if (params.get("price") == null) {
-            throw new IllegalArgumentException("결제 금액 정보가 누락되었습니다.");
-        }
+        throw new IllegalArgumentException("주문 상품 목록이 비어 있습니다.");
+    }
 
-        return new BigDecimal(params.get("price").toString());
+    private void assertNewOrderAllowed(Product product, int quantity) {
+        if (product.getSaleStatus() == SaleStatus.STOPPED) {
+            throw new IllegalArgumentException("판매중지된 상품은 주문할 수 없습니다.");
+        }
+        int stock = product.getStockQuantity() == null ? 0 : product.getStockQuantity();
+        if (stock < quantity) {
+            throw new IllegalArgumentException("재고가 부족합니다.");
+        }
     }
 
     public void verifyAndCompletePayment(Map<String, Object> params) {
@@ -154,12 +168,20 @@ public class OrderService {
                 .orElseGet(() -> ordersRepository.findByOrderMerchantUid(merchantUid)
                         .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문 번호입니다.")));
 
+        if (order.getStatus() != null && order.getStatus() != OrderStatus.ORDERED) {
+            if (order.getStatus() == OrderStatus.PAID) {
+                return;
+            }
+            throw new IllegalStateException("결제할 수 없는 주문 상태입니다.");
+        }
+
         if (order.getNetAmount().compareTo(paidAmount) != 0) {
             order.setStatus(OrderStatus.CANCELLED);
             ordersRepository.save(order);
             throw new IllegalStateException("결제 금액 불일치로 주문 취소 처리");
         }
 
+        restoreOrConsumeStock(order, false);
         order.setStatus(OrderStatus.PAID);
 
         Payment payment = new Payment();
@@ -175,7 +197,6 @@ public class OrderService {
         payment.setPaidAt(LocalDateTime.now());
 
         paymentRepository.save(payment);
-        restoreOrConsumeStock(order, false);
         settlementLedgerService.recordPaidSettlement(order);
     }
 
@@ -453,12 +474,23 @@ public class OrderService {
             if (item == null || item.getProduct() == null) {
                 continue;
             }
+            int count = item.getCount() == null ? 0 : item.getCount();
+            if (!restore) {
+                Long productId = item.getProduct().getId();
+                int updated = productRepository.decrementStockIfEnough(productId, count);
+                if (updated != 1) {
+                    throw new IllegalStateException("재고가 부족하여 결제를 완료할 수 없습니다.");
+                }
+                if (entityManager.contains(item.getProduct())) {
+                    entityManager.refresh(item.getProduct());
+                }
+                continue;
+            }
             Product product = item.getProduct();
             int current = product.getStockQuantity() == null ? 0 : product.getStockQuantity();
-            int count = item.getCount() == null ? 0 : item.getCount();
-            int next = restore ? current + count : current - count;
-            product.setStockQuantity(Math.max(next, 0));
+            product.setStockQuantity(Math.max(current + count, 0));
             productRepository.save(product);
         }
     }
+
 }

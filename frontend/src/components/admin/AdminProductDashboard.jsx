@@ -143,6 +143,9 @@ export default function AdminProductDashboard() {
               imageUrl: editingProduct.imageUrl || '',
               description: editingProduct.description || '',
               detailImages: editingProduct.detailImages || [],
+              categoryId: editingProduct.categoryId ?? '',
+              categoryName: editingProduct.categoryName || '',
+              saleStatus: editingProduct.saleStatus === 'STOPPED' ? 'STOPPED' : 'ON_SALE',
             }}
             onSubmit={updateProduct}
             submitLabel="상품 수정"

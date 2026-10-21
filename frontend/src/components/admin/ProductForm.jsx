@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { formatPriceInput, parsePriceInput } from '../../utils/media';
 import ProductImage from '../common/ProductImage';
 
@@ -9,6 +9,8 @@ const emptyForm = {
   imageUrl: '',
   description: '',
   detailImages: [],
+  categoryId: '',
+  saleStatus: 'ON_SALE',
 };
 
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
@@ -75,15 +77,44 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
       ...seed,
       price: seed.price === '' || seed.price == null ? '' : formatPriceInput(seed.price),
       detailImages: normalizeDetailImages(seed.detailImages),
+      categoryId: seed.categoryId == null || seed.categoryId === '' ? '' : String(seed.categoryId),
+      saleStatus: seed.saleStatus === 'STOPPED' ? 'STOPPED' : 'ON_SALE',
     };
   });
+  const [categories, setCategories] = useState([]);
+  const [categoryState, setCategoryState] = useState('loading');
+  const [categoryMessage, setCategoryMessage] = useState('');
+  const categoryFieldId = initialValue ? 'product-category-edit' : 'product-category';
+  const saleStatusFieldId = initialValue ? 'product-sale-status-edit' : 'product-sale-status';
   const [uploading, setUploading] = useState(false);
   const [uploadingDetail, setUploadingDetail] = useState(false);
   const [detailNotice, setDetailNotice] = useState('');
 
+  const loadCategories = async () => {
+    setCategoryState('loading');
+    setCategoryMessage('');
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !Array.isArray(data)) {
+        throw new Error('카테고리 목록을 불러오지 못했습니다.');
+      }
+      setCategories(data);
+      setCategoryState('ready');
+    } catch (error) {
+      setCategories([]);
+      setCategoryState('error');
+      setCategoryMessage(error.message || '카테고리 목록을 불러오지 못했습니다.');
+    }
+  };
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (uploading || uploadingDetail) {
+    if (uploading || uploadingDetail || categoryState !== 'ready') {
       return;
     }
     onSubmit({
@@ -92,6 +123,8 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
       imageUrl: form.imageUrl,
       description: form.description,
       price: parsePriceInput(form.price),
+      categoryId: form.categoryId ? Number(form.categoryId) : null,
+      saleStatus: form.saleStatus === 'STOPPED' ? 'STOPPED' : 'ON_SALE',
       detailImages: form.detailImages.map((image, index) => ({
         ...(image.id ? { id: image.id } : {}),
         imageUrl: image.imageUrl,
@@ -217,6 +250,57 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
         placeholder="재고"
         className="rounded-xl border border-gray-200 px-4 py-3 text-sm"
       />
+      <div>
+        <label htmlFor={saleStatusFieldId} className="mb-1 block text-xs font-semibold text-slate-500">
+          판매 상태
+        </label>
+        <select
+          id={saleStatusFieldId}
+          value={form.saleStatus}
+          onChange={(e) => setForm({ ...form, saleStatus: e.target.value })}
+          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+        >
+          <option value="ON_SALE">판매중</option>
+          <option value="STOPPED">판매중지</option>
+        </select>
+      </div>
+      <div>
+        <label htmlFor={categoryFieldId} className="mb-1 block text-xs font-semibold text-slate-500">
+          카테고리
+        </label>
+        <select
+          id={categoryFieldId}
+          value={form.categoryId}
+          disabled={categoryState !== 'ready'}
+          onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm"
+        >
+          <option value="">미지정</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+          {form.categoryId && !categories.some((category) => String(category.id) === String(form.categoryId)) ? (
+            <option value={form.categoryId}>{initialValue?.categoryName || `카테고리 ${form.categoryId}`}</option>
+          ) : null}
+        </select>
+        {categoryState === 'loading' ? (
+          <p className="mt-1 text-xs text-slate-500">카테고리를 불러오는 중입니다.</p>
+        ) : null}
+        {categoryState === 'error' ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+            <p>{categoryMessage} 카테고리를 확인하기 전에는 저장하지 않습니다.</p>
+            <button
+              type="button"
+              onClick={loadCategories}
+              className="rounded-md border border-slate-200 px-2 py-1 font-semibold"
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : null}
+      </div>
       <div className="md:col-span-2 rounded-xl border border-slate-200 p-4">
         <p className="text-sm font-semibold text-black">대표 이미지</p>
         <p className="mt-1 text-xs text-slate-500">목록, 장바구니, 주문에 표시되는 이미지 1장입니다.</p>
@@ -306,7 +390,7 @@ export default function ProductForm({ onSubmit, initialValue, submitLabel }) {
       />
       <button
         type="submit"
-        disabled={uploading || uploadingDetail}
+        disabled={uploading || uploadingDetail || categoryState !== 'ready'}
         className="md:col-span-2 rounded-md bg-[#0A192F] py-3 text-sm font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:opacity-50"
       >
         {submitLabel || '상품 등록'}

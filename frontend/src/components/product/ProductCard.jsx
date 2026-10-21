@@ -1,8 +1,12 @@
 import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import ProductImage from '../common/ProductImage';
+import { isOutOfStock, isSaleStopped } from '../../utils/saleStatus';
 
 function ProductCard({ product, formatPrice, onAddToCart, onBuyNow }) {
+  const stopped = isSaleStopped(product);
+  const outOfStock = isOutOfStock(product);
+  const blocked = stopped || outOfStock;
   return (
     <div className="overflow-hidden rounded-md border border-slate-100 bg-white shadow-sm transition duration-300 hover:scale-[1.01] hover:shadow-md">
       <Link to={`/products/${product.id}`} className="block text-inherit no-underline">
@@ -19,20 +23,27 @@ function ProductCard({ product, formatPrice, onAddToCart, onBuyNow }) {
             <span className="text-xl font-semibold tracking-tight text-black">{formatPrice(product.price)}</span>
             <span className="ml-1 text-sm text-slate-500">원</span>
           </div>
+          {blocked ? (
+            <p className="mt-2 text-xs font-semibold text-slate-500">
+              {stopped ? '판매중지 · 구매 불가' : '품절 · 구매 불가'}
+            </p>
+          ) : null}
         </div>
       </Link>
       <div className="grid grid-cols-2 gap-2 p-5">
         <button
           type="button"
+          disabled={blocked}
           onClick={() => onAddToCart(product)}
-          className="rounded-md border border-slate-200 py-3 text-xs font-semibold text-slate-700 transition hover:scale-[1.01] hover:bg-slate-50"
+          className="rounded-md border border-slate-200 py-3 text-xs font-semibold text-slate-700 transition hover:scale-[1.01] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           장바구니
         </button>
         <button
           type="button"
+          disabled={blocked}
           onClick={() => onBuyNow(product)}
-          className="rounded-md bg-[#0A192F] py-3 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B]"
+          className="rounded-md bg-[#0A192F] py-3 text-xs font-semibold text-white shadow-sm transition hover:scale-[1.01] hover:bg-[#1E293B] disabled:cursor-not-allowed disabled:opacity-50"
         >
           구매하기
         </button>
