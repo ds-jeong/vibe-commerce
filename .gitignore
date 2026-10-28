@@ -4,3 +4,9 @@ backend/build/
 
 # Node.js
 frontend/node_modules/
+
+# Local secrets. Example files stay tracked.
+.env
+**/.env
+**/.env.*
+!**/.env.example

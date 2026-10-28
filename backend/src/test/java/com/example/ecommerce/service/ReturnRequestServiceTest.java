@@ -127,4 +127,66 @@ class ReturnRequestServiceTest {
         assertEquals(OrderStatus.RETURN_REQUESTED, result.getStatus());
         verify(returnRequestRepository).save(any(ReturnRequest.class));
     }
+
+    @Test
+    void submitMemberReturn_storesReasonWithoutChangingStock() {
+        when(userRepository.findByUserKey("testuser")).thenReturn(Optional.of(owner));
+        when(ordersRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+        when(returnRequestRepository.existsByOrder_IdAndStatusIn(eq(10L), any())).thenReturn(false);
+        when(ordersRepository.findWithItemsById(10L)).thenReturn(Optional.of(order));
+
+        returnRequestService.submitMemberReturn("testuser", 10L, "  사이즈가 맞지 않음  ");
+
+        ArgumentCaptor<ReturnRequest> captor = ArgumentCaptor.forClass(ReturnRequest.class);
+        verify(returnRequestRepository).save(captor.capture());
+        assertEquals("사이즈가 맞지 않음", captor.getValue().getReason());
+        assertEquals(ReturnStatus.REQUESTED, captor.getValue().getStatus());
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void submitMemberReturn_rejectsReasonOverTheInputLimit() {
+        when(userRepository.findByUserKey("testuser")).thenReturn(Optional.of(owner));
+        when(ordersRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> returnRequestService.submitMemberReturn("testuser", 10L, "가".repeat(1001)));
+        assertEquals("반품 사유는 1000자까지 입력할 수 있습니다.", ex.getMessage());
+        verify(returnRequestRepository, never()).save(any());
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void assertMemberCanRequest_doesNotCreateARequest() {
+        when(userRepository.findByUserKey("testuser")).thenReturn(Optional.of(owner));
+        when(ordersRepository.findWithItemsById(10L)).thenReturn(Optional.of(order));
+        when(returnRequestRepository.existsByOrder_IdAndStatusIn(eq(10L), any())).thenReturn(false);
+
+        returnRequestService.assertMemberCanRequest("testuser", 10L);
+
+        verify(returnRequestRepository, never()).save(any());
+        verify(ordersRepository, never()).save(any());
+    }
+
+    @Test
+    void assertMemberCanRequest_rejectsMissingAndOtherUsersOrders() {
+        when(userRepository.findByUserKey("testuser")).thenReturn(Optional.of(owner));
+        when(ordersRepository.findWithItemsById(99L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException missing = assertThrows(
+                IllegalArgumentException.class,
+                () -> returnRequestService.assertMemberCanRequest("testuser", 99L));
+        assertEquals("주문을 찾을 수 없습니다.", missing.getMessage());
+
+        User other = new User();
+        other.setId(2L);
+        order.setUser(other);
+        when(ordersRepository.findWithItemsById(10L)).thenReturn(Optional.of(order));
+        IllegalArgumentException otherUser = assertThrows(
+                IllegalArgumentException.class,
+                () -> returnRequestService.assertMemberCanRequest("testuser", 10L));
+        assertEquals("본인 주문만 처리할 수 있습니다.", otherUser.getMessage());
+        verify(returnRequestRepository, never()).save(any());
+    }
 }

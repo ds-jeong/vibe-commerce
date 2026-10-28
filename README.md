@@ -901,3 +901,32 @@ API 응답
 - 환경변수를 통한 DB 인증정보 관리
 - 배포 후 API/DB 연결 문제 및 Cold Start 현상 확인
 - 로컬 환경과 Production 환경의 차이 경험
+
+## LLM 챗봇 설정
+
+챗봇은 서버에서만 Google Gemini Developer API(Interactions API)를 호출합니다. 키는 환경변수로 넣고, 코드와 프런트엔드에는 넣지 않습니다. 키가 없으면 API는 설정 확인 메시지를 반환하며 외부 호출을 하지 않습니다. 한도에 걸리면 유료 모델로 바꾸지 않습니다.
+
+기본 모델은 `gemini-3.8-flash`입니다. 2026-10-28 기준 [Gemini API 가격](https://ai.google.dev/gemini-api/docs/pricing)의 Standard 행에서 입력·출력 토큰이 Free of charge입니다. 무료 티어에서는 전송한 내용이 Google 제품 개선에 쓰일 수 있습니다. 주문번호, 상태, 운송장, 상품명처럼 답변에 필요한 값만 보내고, 비밀번호·JWT·결제 정보는 보내지 않습니다. 호출은 `store=false`라 대화 원문을 Interactions 저장소에 남기지 않습니다.
+
+| 이름 | 설명 |
+| --- | --- |
+| `GEMINI_API_KEY` | Google AI Studio에서 발급한 키. 백엔드 환경변수만 사용 |
+| `GEMINI_MODEL` | 모델 이름. 생략 시 `gemini-3.8-flash` |
+| `LLM_TIMEOUT_SECONDS` | 연결·응답 대기 초. 생략 시 15, 최대 60 |
+| `LLM_MAX_REQUESTS_PER_MINUTE` | 로그인 사용자 한 명의 챗봇 호출 수. 생략 시 10, 최대 30. 서버 인스턴스 메모리에서만 센다 |
+
+로컬 실행 예:
+
+```
+$env:GEMINI_API_KEY = "<발급받은 키>"
+cd backend
+.\gradlew.bat bootRun
+```
+
+회원 또는 관리자 JWT로 `POST /api/chat`을 호출합니다. 본문 예:
+
+```json
+{"message":"배송은 어디서 보나요?","history":[{"role":"user","content":"안녕"},{"role":"assistant","content":"무엇을 도와드릴까요?"}]}
+```
+
+`history`의 `role`은 `user` 또는 `assistant`만 허용합니다. 로그인한 회원의 주문 목록과 배송 상태는 서버 도구로만 조회합니다. 사용자 식별자는 JWT의 회원 키를 쓰고, 도구 인자로 받은 사용자 값은 무시합니다. 배송사 API는 호출하지 않으며 운송장 번호와 주문 상태만 안내합니다. 반품 정책은 코드의 접수 규칙만 안내하고, 개별 주문은 서버가 다시 확인합니다. 사용자가 `반품 신청 확인`이라고 답한 뒤에만 기존 반품 신청을 접수하며, 환불과 결제 취소는 하지 않습니다. 한 요청은 도구 호출을 포함해 Gemini를 최대 4번 부르고, 일시적인 429·5xx·시간 초과만 1번 더 시도합니다. 일일 한도(`quota_exceeded`)와 결제 필요 응답은 재시도하지 않습니다. 앱 자체의 분당 제한을 넘기면 `429`와 잠시 후 다시 시도하라는 메시지가 반환됩니다. Gemini 한도는 `503`과 사용량 안내 문구로 반환됩니다.

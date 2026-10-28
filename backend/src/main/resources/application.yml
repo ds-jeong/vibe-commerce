@@ -39,3 +39,10 @@ supabase:
 
 app:
   frontend-origin: ${FRONTEND_ORIGIN:*}
+
+llm:
+  api-key: ${GEMINI_API_KEY:}
+  base-url: https://generativelanguage.googleapis.com/v1beta
+  model: ${GEMINI_MODEL:gemini-3.8-flash}
+  timeout-seconds: ${LLM_TIMEOUT_SECONDS:15}
+  max-requests-per-minute: ${LLM_MAX_REQUESTS_PER_MINUTE:10}

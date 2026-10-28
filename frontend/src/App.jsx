@@ -8,6 +8,7 @@ import UserLoginPage from './pages/UserLoginPage';
 import UserSignupPage from './pages/UserSignupPage';
 import MyPage from './pages/MyPage';
 import LoadingBar from './components/common/LoadingBar';
+import ChatWidget from './components/chat/ChatWidget';
 
 function SleepWarningGate() {
   const { pathname } = useLocation();
@@ -26,6 +27,7 @@ export default function App() {
     <Router>
       <LoadingBar />
       <SleepWarningGate />
+      <ChatWidget />
       <Routes>
         <Route path="/" element={<ProductListPage />} />
         <Route path="/products/:id" element={<ProductDetailPage />} />

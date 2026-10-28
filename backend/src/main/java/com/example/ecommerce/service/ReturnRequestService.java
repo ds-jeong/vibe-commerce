@@ -50,10 +50,38 @@ public class ReturnRequestService {
     }
 
     public Orders submitMemberReturn(String username, Long orderId) {
+        return submitMemberReturn(username, orderId, null);
+    }
+
+    public Orders submitMemberReturn(String username, Long orderId, String reason) {
         User user = userRepository.findByUserKey(username)
                 .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
         Orders order = ordersRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        assertOwnedAndReturnable(user, order);
+
+        ReturnRequest request = new ReturnRequest();
+        request.setOrder(order);
+        request.setStatus(ReturnStatus.REQUESTED);
+        request.setRequestedAt(LocalDateTime.now());
+        request.setReason(normalizeReason(reason));
+        returnRequestRepository.save(request);
+
+        order.setStatus(OrderStatus.RETURN_REQUESTED);
+        ordersRepository.save(order);
+        return ordersRepository.findWithItemsById(order.getId()).orElse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public void assertMemberCanRequest(String username, Long orderId) {
+        User user = userRepository.findByUserKey(username)
+                .orElseThrow(() -> new IllegalArgumentException("회원 정보를 찾을 수 없습니다."));
+        Orders order = ordersRepository.findWithItemsById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        assertOwnedAndReturnable(user, order);
+    }
+
+    private void assertOwnedAndReturnable(User user, Orders order) {
         if (order.getUser() == null || order.getUser().getId() == null
                 || !order.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("본인 주문만 처리할 수 있습니다.");
@@ -64,16 +92,17 @@ public class ReturnRequestService {
         if (returnRequestRepository.existsByOrder_IdAndStatusIn(order.getId(), ReturnStatus.activeStatuses())) {
             throw new IllegalStateException("이미 진행 중인 반품 신청이 있습니다.");
         }
+    }
 
-        ReturnRequest request = new ReturnRequest();
-        request.setOrder(order);
-        request.setStatus(ReturnStatus.REQUESTED);
-        request.setRequestedAt(LocalDateTime.now());
-        returnRequestRepository.save(request);
-
-        order.setStatus(OrderStatus.RETURN_REQUESTED);
-        ordersRepository.save(order);
-        return ordersRepository.findWithItemsById(order.getId()).orElse(order);
+    private String normalizeReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            return null;
+        }
+        String trimmed = reason.trim();
+        if (trimmed.length() > 1000) {
+            throw new IllegalArgumentException("반품 사유는 1000자까지 입력할 수 있습니다.");
+        }
+        return trimmed;
     }
 
     @Transactional(readOnly = true)

@@ -55,6 +55,7 @@ public class SecurityConfig {
                 
                 // 🔐 3. 일반 회원 전용 채널 (회원 전용 장바구니 및 회원 주문 내역 조회 권한 분리)
                 .requestMatchers("/api/cart/**", "/api/orders/my", "/api/orders/*/cancel", "/api/orders/*/return-request", "/api/user/profile", "/api/user/profile/**", "/api/user/likes", "/api/inquiries", "/api/inquiries/**").hasRole("USER")
+                .requestMatchers(HttpMethod.POST, "/api/chat").authenticated()
                 
                 .anyRequest().permitAll()
             )
